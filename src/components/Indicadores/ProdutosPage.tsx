@@ -4,7 +4,10 @@ import {
     DollarSign,
     TrendingUp,
     AlertTriangle,
-    Receipt
+    Receipt,
+    Search,
+    ChevronUp,
+    ChevronDown
 } from 'lucide-react';
 import { FilterPanel } from '../Common/FilterPanel';
 import { MetricCard } from './MetricCard';
@@ -15,6 +18,25 @@ import { useGlobalFilters } from '../../contexts/GlobalFiltersContext';
 export const ProdutosPage: React.FC = () => {
     const { filters: globalFilters, updateFilters } = useGlobalFilters();
     const [selectedVendedor, setSelectedVendedor] = useState<string>('');
+
+    // Filters and Sorting State
+    const [searchProduto, setSearchProduto] = useState('');
+    const [searchGrupo, setSearchGrupo] = useState('');
+    const [sortFieldProduto, setSortFieldProduto] = useState<string>('faturamento');
+    const [sortDirProduto, setSortDirProduto] = useState<'asc' | 'desc'>('desc');
+    const [sortFieldGrupo, setSortFieldGrupo] = useState<string>('faturamento');
+    const [sortDirGrupo, setSortDirGrupo] = useState<'asc' | 'desc'>('desc');
+    const [sortFieldVendedor, setSortFieldVendedor] = useState<string>('faturamento');
+    const [sortDirVendedor, setSortDirVendedor] = useState<'asc' | 'desc'>('desc');
+
+    const handleSort = (field: string, currentField: string, currentDir: 'asc' | 'desc', setField: Function, setDir: Function) => {
+        if (field === currentField) {
+            setDir(currentDir === 'asc' ? 'desc' : 'asc');
+        } else {
+            setField(field);
+            setDir('desc');
+        }
+    };
 
     // 1. Main Dashboard Data (Fast Load)
     const { data, loading, error } = useProdutosData({
@@ -43,6 +65,44 @@ export const ProdutosPage: React.FC = () => {
     const handleEmpresasChange = (ids: string[]) => {
         updateFilters({ empresaIds: ids });
     };
+
+    // Filter and Sort Logic
+    const filteredProdutos = data?.performance_produtos
+        ? [...data.performance_produtos]
+            .filter(item => item.produto.toLowerCase().includes(searchProduto.toLowerCase()))
+            .sort((a, b) => {
+                const modifier = sortDirProduto === 'asc' ? 1 : -1;
+                const field = sortFieldProduto as keyof typeof a;
+                if (typeof a[field] === 'string') {
+                    return (a[field] as string).localeCompare(b[field] as string) * modifier;
+                }
+                return ((a[field] as number) - (b[field] as number)) * modifier;
+            })
+        : [];
+
+    const filteredGrupos = data?.performance_grupos
+        ? [...data.performance_grupos]
+            .filter(item => item.grupo.toLowerCase().includes(searchGrupo.toLowerCase()))
+            .sort((a, b) => {
+                const modifier = sortDirGrupo === 'asc' ? 1 : -1;
+                const field = sortFieldGrupo as keyof typeof a;
+                if (typeof a[field] === 'string') {
+                    return (a[field] as string).localeCompare(b[field] as string) * modifier;
+                }
+                return ((a[field] as number) - (b[field] as number)) * modifier;
+            })
+        : [];
+
+    const sortedTableData = tableData
+        ? [...tableData].sort((a, b) => {
+            const modifier = sortDirVendedor === 'asc' ? 1 : -1;
+            const field = sortFieldVendedor as keyof typeof a;
+            if (typeof a[field] === 'string') {
+                return (a[field] as string).localeCompare(b[field] as string) * modifier;
+            }
+            return ((a[field] as number) - (b[field] as number)) * modifier;
+        })
+        : [];
 
     return (
         <div className="space-y-6">
@@ -106,23 +166,54 @@ export const ProdutosPage: React.FC = () => {
                         />
                     </div>
 
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div className="flex flex-col gap-6">
                         {/* Performance por Produto Table */}
                         <div className="bg-[#1E293B] border border-[#0F4C5C]/20 rounded-xl p-6">
-                            <h3 className="text-lg font-semibold text-white mb-4">Performance por Produto</h3>
+                            <div className="flex flex-col md:flex-row md:items-center justify-between mb-4 gap-4">
+                                <h3 className="text-lg font-semibold text-white">Performance por Produto</h3>
+                                <div className="relative">
+                                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                                    <input
+                                        type="text"
+                                        placeholder="Buscar producto..."
+                                        value={searchProduto}
+                                        onChange={(e) => setSearchProduto(e.target.value)}
+                                        className="bg-[#0F172A] border border-[#0F4C5C]/20 rounded-lg pl-9 pr-4 py-1.5 text-white text-sm focus:outline-none focus:border-[#0F4C5C] w-full md:w-64"
+                                    />
+                                </div>
+                            </div>
                             <div className="overflow-x-auto max-h-[300px] overflow-y-auto custom-scrollbar">
                                 <table className="w-full text-sm text-left text-gray-400">
                                     <thead className="text-xs text-gray-200 uppercase bg-[#0F172A] sticky top-0">
                                         <tr>
-                                            <th className="px-4 py-3 rounded-tl-lg">Produto</th>
-                                            <th className="px-4 py-3 text-right">Faturamento</th>
-                                            <th className="px-4 py-3 text-right">Custo CMV</th>
-                                            <th className="px-4 py-3 text-right">Margem</th>
-                                            <th className="px-4 py-3 text-right rounded-tr-lg">Margem %</th>
+                                            {[
+                                                { label: 'Produto', key: 'produto', align: 'left' },
+                                                { label: 'Faturamento', key: 'faturamento', align: 'right' },
+                                                { label: 'Custo CMV', key: 'custo', align: 'right' },
+                                                { label: 'Margem', key: 'lucro', align: 'right' },
+                                                { label: 'Margem %', key: 'margem_percentual', align: 'right' },
+                                                { label: 'Qtd Vendida', key: 'cantidad', align: 'right' },
+                                                { label: 'Total Desconto', key: 'desconto', align: 'right' }
+                                            ].map((col, idx) => (
+                                                <th
+                                                    key={col.key}
+                                                    onClick={() => handleSort(col.key, sortFieldProduto, sortDirProduto, setSortFieldProduto, setSortDirProduto)}
+                                                    className={`px-4 py-3 cursor-pointer hover:bg-[#0F4C5C]/20 transition-colors ${col.align === 'right' ? 'text-right' : ''} ${idx === 0 ? 'rounded-tl-lg' : ''} ${idx === 6 ? 'rounded-tr-lg' : ''}`}
+                                                >
+                                                    <div className={`flex items-center ${col.align === 'right' ? 'justify-end' : 'justify-start'} space-x-1`}>
+                                                        <span>{col.label}</span>
+                                                        {sortFieldProduto === col.key ? (
+                                                            sortDirProduto === 'asc' ? <ChevronUp size={14} className="text-emerald-400" /> : <ChevronDown size={14} className="text-emerald-400" />
+                                                        ) : (
+                                                            <div className="w-3.5 opacity-0 group-hover:opacity-50" />
+                                                        )}
+                                                    </div>
+                                                </th>
+                                            ))}
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        {data.performance_produtos.map((item, index) => (
+                                        {filteredProdutos.map((item, index) => (
                                             <tr key={index} className="border-b border-[#0F4C5C]/10 hover:bg-[#0F4C5C]/5">
                                                 <td className="px-4 py-3 font-medium text-white">{item.produto}</td>
                                                 <td className="px-4 py-3 text-right text-emerald-400">
@@ -137,6 +228,12 @@ export const ProdutosPage: React.FC = () => {
                                                 <td className="px-4 py-3 text-right text-white">
                                                     {item.margem_percentual}%
                                                 </td>
+                                                <td className="px-4 py-3 text-right text-white">
+                                                    {new Intl.NumberFormat('pt-BR').format(item.cantidad)}
+                                                </td>
+                                                <td className="px-4 py-3 text-right text-red-400">
+                                                    {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.desconto)}
+                                                </td>
                                             </tr>
                                         ))}
                                     </tbody>
@@ -146,20 +243,51 @@ export const ProdutosPage: React.FC = () => {
 
                         {/* Performance por Grupo Table */}
                         <div className="bg-[#1E293B] border border-[#0F4C5C]/20 rounded-xl p-6">
-                            <h3 className="text-lg font-semibold text-white mb-4">Performance por Grupo</h3>
+                            <div className="flex flex-col md:flex-row md:items-center justify-between mb-4 gap-4">
+                                <h3 className="text-lg font-semibold text-white">Performance por Grupo</h3>
+                                <div className="relative">
+                                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                                    <input
+                                        type="text"
+                                        placeholder="Buscar grupo..."
+                                        value={searchGrupo}
+                                        onChange={(e) => setSearchGrupo(e.target.value)}
+                                        className="bg-[#0F172A] border border-[#0F4C5C]/20 rounded-lg pl-9 pr-4 py-1.5 text-white text-sm focus:outline-none focus:border-[#0F4C5C] w-full md:w-64"
+                                    />
+                                </div>
+                            </div>
                             <div className="overflow-x-auto max-h-[300px] overflow-y-auto custom-scrollbar">
                                 <table className="w-full text-sm text-left text-gray-400">
                                     <thead className="text-xs text-gray-200 uppercase bg-[#0F172A] sticky top-0">
                                         <tr>
-                                            <th className="px-4 py-3 rounded-tl-lg">Grupo</th>
-                                            <th className="px-4 py-3 text-right">Faturamento</th>
-                                            <th className="px-4 py-3 text-right">Ticket Médio</th>
-                                            <th className="px-4 py-3 text-right">Margem</th>
-                                            <th className="px-4 py-3 text-right rounded-tr-lg">Margem %</th>
+                                            {[
+                                                { label: 'Grupo', key: 'grupo', align: 'left' },
+                                                { label: 'Faturamento', key: 'faturamento', align: 'right' },
+                                                { label: 'Ticket Médio', key: 'ticket_medio', align: 'right' },
+                                                { label: 'Margem', key: 'lucro', align: 'right' },
+                                                { label: 'Margem %', key: 'margem_percentual', align: 'right' },
+                                                { label: 'Qtd Vendida', key: 'cantidad', align: 'right' },
+                                                { label: 'Total Desconto', key: 'desconto', align: 'right' }
+                                            ].map((col, idx) => (
+                                                <th
+                                                    key={col.key}
+                                                    onClick={() => handleSort(col.key, sortFieldGrupo, sortDirGrupo, setSortFieldGrupo, setSortDirGrupo)}
+                                                    className={`px-4 py-3 cursor-pointer hover:bg-[#0F4C5C]/20 transition-colors ${col.align === 'right' ? 'text-right' : ''} ${idx === 0 ? 'rounded-tl-lg' : ''} ${idx === 6 ? 'rounded-tr-lg' : ''}`}
+                                                >
+                                                    <div className={`flex items-center ${col.align === 'right' ? 'justify-end' : 'justify-start'} space-x-1`}>
+                                                        <span>{col.label}</span>
+                                                        {sortFieldGrupo === col.key ? (
+                                                            sortDirGrupo === 'asc' ? <ChevronUp size={14} className="text-emerald-400" /> : <ChevronDown size={14} className="text-emerald-400" />
+                                                        ) : (
+                                                            <div className="w-3.5 opacity-0 group-hover:opacity-50" />
+                                                        )}
+                                                    </div>
+                                                </th>
+                                            ))}
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        {data.performance_grupos.map((item, index) => (
+                                        {filteredGrupos.map((item, index) => (
                                             <tr key={index} className="border-b border-[#0F4C5C]/10 hover:bg-[#0F4C5C]/5">
                                                 <td className="px-4 py-3 font-medium text-white">{item.grupo}</td>
                                                 <td className="px-4 py-3 text-right text-emerald-400">
@@ -173,6 +301,12 @@ export const ProdutosPage: React.FC = () => {
                                                 </td>
                                                 <td className="px-4 py-3 text-right text-white">
                                                     {item.margem_percentual}%
+                                                </td>
+                                                <td className="px-4 py-3 text-right text-white">
+                                                    {new Intl.NumberFormat('pt-BR').format(item.cantidad)}
+                                                </td>
+                                                <td className="px-4 py-3 text-right text-red-400">
+                                                    {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.desconto)}
                                                 </td>
                                             </tr>
                                         ))}
@@ -215,21 +349,42 @@ export const ProdutosPage: React.FC = () => {
                                 <table className="w-full text-sm text-left text-gray-400">
                                     <thead className="text-xs text-gray-200 uppercase bg-[#0F172A] sticky top-0">
                                         <tr>
-                                            <th className="px-4 py-3 rounded-tl-lg">Produto</th>
-                                            <th className="px-4 py-3 text-right">Qtd</th>
-                                            <th className="px-4 py-3 text-right rounded-tr-lg">Faturamento</th>
+                                            {[
+                                                { label: 'Produto', key: 'produto', align: 'left' },
+                                                { label: 'Qtd', key: 'cantidad', align: 'right' },
+                                                { label: 'Total Desconto', key: 'desconto', align: 'right' },
+                                                { label: 'Faturamento', key: 'faturamento', align: 'right' }
+                                            ].map((col, idx) => (
+                                                <th
+                                                    key={col.key}
+                                                    onClick={() => handleSort(col.key, sortFieldVendedor, sortDirVendedor, setSortFieldVendedor, setSortDirVendedor)}
+                                                    className={`px-4 py-3 cursor-pointer hover:bg-[#0F4C5C]/20 transition-colors ${col.align === 'right' ? 'text-right' : ''} ${idx === 0 ? 'rounded-tl-lg' : ''} ${idx === 3 ? 'rounded-tr-lg' : ''}`}
+                                                >
+                                                    <div className={`flex items-center ${col.align === 'right' ? 'justify-end' : 'justify-start'} space-x-1`}>
+                                                        <span>{col.label}</span>
+                                                        {sortFieldVendedor === col.key ? (
+                                                            sortDirVendedor === 'asc' ? <ChevronUp size={14} className="text-emerald-400" /> : <ChevronDown size={14} className="text-emerald-400" />
+                                                        ) : (
+                                                            <div className="w-3.5 opacity-0 group-hover:opacity-50" />
+                                                        )}
+                                                    </div>
+                                                </th>
+                                            ))}
                                         </tr>
                                     </thead>
                                     <tbody>
                                         {tableData.length === 0 ? (
                                             <tr>
-                                                <td colSpan={3} className="px-4 py-8 text-center text-gray-500">Nenhum dado encontrado</td>
+                                                <td colSpan={4} className="px-4 py-8 text-center text-gray-500">Nenhum dado encontrado</td>
                                             </tr>
                                         ) : (
-                                            tableData.map((item, index) => (
+                                            sortedTableData.map((item, index) => (
                                                 <tr key={index} className="border-b border-[#0F4C5C]/10 hover:bg-[#0F4C5C]/5">
                                                     <td className="px-4 py-3 font-medium text-white">{item.produto}</td>
-                                                    <td className="px-4 py-3 text-right">{item.quantidade}</td>
+                                                    <td className="px-4 py-3 text-right">{item.cantidad}</td>
+                                                    <td className="px-4 py-3 text-right text-red-400">
+                                                        {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.desconto)}
+                                                    </td>
                                                     <td className="px-4 py-3 text-right text-emerald-400">
                                                         {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.faturamento)}
                                                     </td>

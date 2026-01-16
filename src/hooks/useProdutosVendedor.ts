@@ -6,7 +6,8 @@ export interface ProdutoVendedor {
     ds_vendedor: string;
     produto: string;
     faturamento: number;
-    quantidade: number;
+    cantidad: number;
+    desconto: number;
 }
 
 interface UseProdutosVendedorParams {

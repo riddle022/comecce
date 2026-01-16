@@ -17,6 +17,8 @@ export interface PerformanceProduto {
     custo: number;
     lucro: number;
     margem_percentual: number;
+    cantidad: number;
+    desconto: number;
 }
 
 export interface PerformanceGrupo {
@@ -26,6 +28,8 @@ export interface PerformanceGrupo {
     custo: number;
     lucro: number;
     margem_percentual: number;
+    cantidad: number;
+    desconto: number;
 }
 
 export interface ProdutosData {
