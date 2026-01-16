@@ -95,7 +95,7 @@ export const LoginPage: React.FC = () => {
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-3 bg-gradient-to-r from-[#0F4C5C] to-[#0F4C5C] text-white rounded-lg font-semibold hover:shadow-lg hover:shadow-[#0F4C5C]/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full py-3 bg-gradient-to-r from-[#0F4C5C] to-[#0F4C5C] text-black rounded-lg font-semibold hover:shadow-lg hover:shadow-[#0F4C5C]/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? 'Processando...' : 'Entrar'}
             </button>
