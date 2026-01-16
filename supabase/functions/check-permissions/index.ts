@@ -7,6 +7,7 @@ const ALLOWED_ORIGINS = [
   'http://localhost:5173',
   'http://localhost:3000',
   'https://*.netlify.app',
+  'https://*.vercel.app',
 ];
 
 const IS_PRODUCTION = Deno.env.get('DENO_ENV') === 'production';
@@ -153,8 +154,8 @@ function logError(message: string, error?: any): void {
 
 function getClientIp(req: Request): string {
   return req.headers.get('x-forwarded-for')?.split(',')[0].trim() ||
-         req.headers.get('x-real-ip') ||
-         'unknown';
+    req.headers.get('x-real-ip') ||
+    'unknown';
 }
 
 function getUserAgent(req: Request): string {
