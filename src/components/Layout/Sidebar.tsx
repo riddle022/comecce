@@ -72,7 +72,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeMenu, onMenuClick, isOpe
             <h1 className="text-base font-bold bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">
               COMECCE
             </h1>
-            <p className="text-[10px] text-gray-500">Análise Contábil</p>
+            <p className="text-[10px] text-gray-500">Consultoria Financeira</p>
           </div>
         </div>
       </div>
@@ -87,8 +87,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeMenu, onMenuClick, isOpe
               key={item.id}
               onClick={() => onMenuClick(item.id)}
               className={`w-full flex items-center space-x-2 px-3 py-2 rounded-lg transition-all ${isActive
-                  ? 'bg-gradient-to-r from-[#0F4C5C] to-[#0F4C5C] text-white shadow-lg shadow-[#0F4C5C]/30'
-                  : 'text-gray-400 hover:bg-[#1E293B] hover:text-white'
+                ? 'bg-gradient-to-r from-[#0F4C5C] to-[#0F4C5C] text-white shadow-lg shadow-[#0F4C5C]/30'
+                : 'text-gray-400 hover:bg-[#1E293B] hover:text-white'
                 }`}
             >
               <Icon className="w-4 h-4" />
@@ -102,8 +102,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeMenu, onMenuClick, isOpe
             <button
               onClick={() => setGerenciadorOpen(!gerenciadorOpen)}
               className={`w-full flex items-center justify-between px-3 py-2 rounded-lg transition-all ${isGerenciadorActive
-                  ? 'bg-[#1E293B] text-white'
-                  : 'text-gray-400 hover:bg-[#1E293B] hover:text-white'
+                ? 'bg-[#1E293B] text-white'
+                : 'text-gray-400 hover:bg-[#1E293B] hover:text-white'
                 }`}
             >
               <div className="flex items-center space-x-2">
@@ -128,8 +128,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeMenu, onMenuClick, isOpe
                       key={item.id}
                       onClick={() => onMenuClick(item.id)}
                       className={`w-full flex items-center space-x-2 px-3 py-2 rounded-lg transition-all ${isActive
-                          ? 'bg-gradient-to-r from-[#0F4C5C] to-[#0F4C5C] text-white shadow-lg shadow-[#0F4C5C]/30'
-                          : 'text-gray-400 hover:bg-[#1E293B] hover:text-white'
+                        ? 'bg-gradient-to-r from-[#0F4C5C] to-[#0F4C5C] text-white shadow-lg shadow-[#0F4C5C]/30'
+                        : 'text-gray-400 hover:bg-[#1E293B] hover:text-white'
                         }`}
                     >
                       <Icon className="w-3.5 h-3.5" />
