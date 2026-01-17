@@ -4,7 +4,6 @@ import { StatCard } from './StatCard';
 import { FilterPanel } from '../Common/FilterPanel';
 import { FaturamentoChart } from './FaturamentoChart';
 import { TopVendedoresCard } from './TopVendedoresCard';
-import { FormasPagamentoChart } from './FormasPagamentoChart';
 import { useDashboardData } from '../../hooks/useDashboardData';
 import { useGlobalFilters } from '../../contexts/GlobalFiltersContext';
 
@@ -83,7 +82,7 @@ export const Dashboard: React.FC = () => {
     );
   }
 
-  const { kpis, tendencia, top_vendedores, formas_pagamento, resumo_os } = data;
+  const { kpis, tendencia, top_vendedores, resumo_os } = data;
 
   return (
     <div className="space-y-4">
@@ -94,7 +93,7 @@ export const Dashboard: React.FC = () => {
         initialEmpresas={filters.empresaIds}
       />
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
           title="Faturamento Bruto"
           value={formatCurrency(kpis.faturamento_bruto)}
@@ -131,35 +130,23 @@ export const Dashboard: React.FC = () => {
           icon={ShoppingBag}
           color="purple"
         />
+        <StatCard
+          title="OS Não Entregues"
+          value={resumo_os?.os_nao_entregues || 0}
+          icon={FileCheck}
+          color="blue"
+        />
+        <StatCard
+          title="OS Entregues"
+          value={resumo_os?.os_entregues || 0}
+          icon={Truck}
+          color="green"
+        />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <FaturamentoChart data={tendencia || []} />
         <TopVendedoresCard vendedores={top_vendedores || []} />
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <FormasPagamentoChart data={formas_pagamento || []} />
-
-        <div className="bg-[#1E293B] border border-[#0F4C5C]/20 rounded-xl p-4">
-          <h3 className="text-base font-semibold text-white mb-3">Resumo de Ordens de Serviço</h3>
-          <div className="space-y-3">
-            <div className="flex items-center justify-between p-3 bg-[#0F172A] rounded-lg">
-              <div className="flex items-center space-x-2">
-                <FileCheck className="w-4 h-4 text-blue-400" />
-                <span className="text-gray-300 text-sm">OS Não Entregues</span>
-              </div>
-              <span className="text-xl font-bold text-white">{resumo_os?.os_nao_entregues || 0}</span>
-            </div>
-            <div className="flex items-center justify-between p-3 bg-[#0F172A] rounded-lg">
-              <div className="flex items-center space-x-2">
-                <Truck className="w-4 h-4 text-green-400" />
-                <span className="text-gray-300 text-sm">OS Entregues</span>
-              </div>
-              <span className="text-xl font-bold text-white">{resumo_os?.os_entregues || 0}</span>
-            </div>
-          </div>
-        </div>
       </div>
     </div>
   );
