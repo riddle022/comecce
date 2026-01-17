@@ -1,5 +1,5 @@
-import React, { useState, useMemo } from 'react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import React, { useMemo, useState } from 'react';
+import { Bar, CartesianGrid, ComposedChart, LabelList, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { TendenciaItem } from '../../hooks/useDashboardData';
 
 interface FaturamentoChartProps {
@@ -23,68 +23,88 @@ export const FaturamentoChart: React.FC<FaturamentoChartProps> = ({ data }) => {
   const processedData = useMemo(() => {
     if (!data || data.length === 0) return [];
 
-    if (filter === 'day') {
-      return data;
-    }
+    let result: { data: string; valor_bruto: number }[] = [];
 
-    if (filter === 'week') {
-      // Initialize days of week map
+    if (filter === 'day') {
+      result = data;
+    } else if (filter === 'week') {
       const daysOfWeek = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
       const weekData = daysOfWeek.map(day => ({ data: day, valor_bruto: 0 }));
 
       data.forEach(item => {
-        // Parse date carefully
         const [year, month, day] = item.data.split('-').map(Number);
         const date = new Date(year, month - 1, day);
         const dayIndex = date.getDay();
         weekData[dayIndex].valor_bruto += item.valor_bruto;
       });
 
-      return weekData;
-    }
-
-    if (filter === 'month') {
+      result = weekData;
+    } else if (filter === 'month') {
       const monthMap = new Map<string, number>();
 
       data.forEach(item => {
         const [year, month] = item.data.split('-');
-        const key = `${year}-${month}`; // Key for grouping
+        const key = `${year}-${month}`;
         const current = monthMap.get(key) || 0;
         monthMap.set(key, current + item.valor_bruto);
       });
 
-      // Convert back to array
-      return Array.from(monthMap.entries()).map(([key, value]) => ({
+      result = Array.from(monthMap.entries()).map(([key, value]) => ({
         data: key,
         valor_bruto: value
       }));
+    } else {
+      result = data;
     }
 
-    return data;
+    return result.map((item, index) => {
+      let variacao = 0;
+      if (index > 0) {
+        const anterior = result[index - 1].valor_bruto;
+        if (anterior !== 0) {
+          variacao = ((item.valor_bruto - anterior) / anterior) * 100;
+        }
+      }
+      return { ...item, variacao };
+    });
   }, [data, filter]);
 
   const formatDate = (dateStr: string) => {
-    if (filter === 'week') return dateStr; // Already formatted as day name
-
+    if (filter === 'week') return dateStr;
     if (filter === 'month') {
       const [year, month] = dateStr.split('-');
       const date = new Date(Number(year), Number(month) - 1, 1);
-      // Capitalize first letter
       const monthName = date.toLocaleDateString('pt-BR', { month: 'long' });
       return monthName.charAt(0).toUpperCase() + monthName.slice(1);
     }
-
     const [year, month, day] = dateStr.split('-');
     const date = new Date(Number(year), Number(month) - 1, Number(day));
+    if (isNaN(date.getTime())) return dateStr;
     return date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+  };
+
+  // Custom label for the Bar (Value)
+  const CustomBarLabel = (props: any) => {
+    const { x, y, width, value } = props;
+    if (!value) return null;
+    return (
+      <text
+        x={x + width / 2}
+        y={y - 8}
+        fill="#94A3B8"
+        textAnchor="middle"
+        fontSize={11}
+        fontWeight={500}
+      >
+        {formatCurrency(value)}
+      </text>
+    );
   };
 
   return (
     <div className="bg-[#1E293B] border border-[#0F4C5C]/20 rounded-xl p-4">
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-base font-semibold text-white">Faturamento no Período</h3>
-
-        {/* Minimalist Filters */}
         <div className="flex items-center bg-[#0F172A] rounded-lg p-1 border border-[#334155]">
           {(['day', 'week', 'month'] as const).map((f) => (
             <button
@@ -104,7 +124,11 @@ export const FaturamentoChart: React.FC<FaturamentoChartProps> = ({ data }) => {
       </div>
 
       <ResponsiveContainer width="100%" height={250}>
-        <BarChart data={processedData} barSize={32}>
+        <ComposedChart
+          data={processedData}
+          barSize={filter === 'day' ? undefined : 32} // Auto width for days, fixed for others
+          margin={{ top: 35, right: 10, left: 0, bottom: 0 }}
+        >
           <defs>
             <linearGradient id="faturamentoGradient" x1="0" y1="0" x2="0" y2="1">
               <stop offset="0%" stopColor="#0F766E" />
@@ -119,6 +143,7 @@ export const FaturamentoChart: React.FC<FaturamentoChartProps> = ({ data }) => {
             fontSize={12}
             tickLine={false}
             axisLine={false}
+            minTickGap={30} // Evita sobreposição de datas no eixo X
           />
           <YAxis
             stroke="#64748B"
@@ -135,30 +160,70 @@ export const FaturamentoChart: React.FC<FaturamentoChartProps> = ({ data }) => {
               borderRadius: '12px',
               boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
             }}
-            formatter={(value: any) => [formatCurrency(value), 'Faturamento']}
+            formatter={(value: any, name: string) => {
+              if (name === 'variacao') return [`${value.toFixed(1)}%`, 'Crescimento'];
+              return [formatCurrency(value), 'Faturamento'];
+            }}
             labelFormatter={formatDate}
             labelStyle={{ color: '#E2E8F0', marginBottom: '8px' }}
-            // Only show tooltip for 'day' filter
-            wrapperStyle={{ display: filter === 'day' ? 'block' : 'none' }}
           />
+
           <Bar
             dataKey="valor_bruto"
             fill="url(#faturamentoGradient)"
             radius={[4, 4, 0, 0]}
-            // Show labels for 'week' and 'month'
-            label={
-              filter !== 'day'
-                ? {
-                  position: 'top',
-                  formatter: (value: number) => formatCurrency(value),
-                  fill: '#94A3B8', // Slate-400 for minimalist look
-                  fontSize: 11,
-                  fontWeight: 500,
-                }
-                : undefined
-            }
+            // Lógica de labels: Só mostra se NÃO for 'day'.
+            // No modo 'day', fica muito poluído mostrar valores em todas as barras.
+            label={filter !== 'day' ? <CustomBarLabel /> : undefined}
           />
-        </BarChart>
+
+          {/* Linha de Evolução Percentual */}
+          <Line
+            type="monotone"
+            dataKey="valor_bruto"
+            stroke="#fbbf24" /* Amber-400 */
+            strokeWidth={2}
+            strokeDasharray="5 5"
+            // Pontos menores no modo dia para reduzir ruído
+            dot={{
+              r: filter === 'day' ? 2 : 4,
+              fill: "#fbbf24",
+              strokeWidth: filter === 'day' ? 1 : 2,
+              stroke: "#1E293B"
+            }}
+            activeDot={{ r: 6, fill: "#fbbf24" }}
+          >
+            <LabelList
+              dataKey="variacao"
+              position="top"
+              offset={22}
+              content={(props: any) => {
+                // No modo 'day', NÃO mostramos os labels de porcentagem para evitar poluição visual extrema.
+                // A informação estará disponível no Tooltip.
+                if (filter === 'day') return null;
+
+                const { x, y, value, index } = props;
+                if (index === 0 || value === undefined || value === null) return null;
+
+                const isPositive = value >= 0;
+                const color = isPositive ? "#4ade80" : "#f87171";
+
+                return (
+                  <text
+                    x={x}
+                    y={y - 22}
+                    fill={color}
+                    fontSize={11}
+                    fontWeight="bold"
+                    textAnchor="middle"
+                  >
+                    {`${isPositive ? '+' : ''}${value.toFixed(1)}%`}
+                  </text>
+                );
+              }}
+            />
+          </Line>
+        </ComposedChart>
       </ResponsiveContainer>
     </div>
   );
