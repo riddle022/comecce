@@ -1,9 +1,9 @@
 import React from 'react';
-import { DollarSign, TrendingUp, ShoppingCart, PercentSquare, ShoppingBag, FileCheck, Truck } from 'lucide-react';
+import { DollarSign, TrendingUp, ShoppingCart, PercentSquare, ShoppingBag, FileCheck, Truck, Trophy, Package, Layers } from 'lucide-react';
 import { StatCard } from './StatCard';
 import { FilterPanel } from '../Common/FilterPanel';
 import { FaturamentoChart } from './FaturamentoChart';
-import { TopVendedoresCard } from './TopVendedoresCard';
+import { RankingCard } from './RankingCard';
 import { useDashboardData } from '../../hooks/useDashboardData';
 import { useGlobalFilters } from '../../contexts/GlobalFiltersContext';
 
@@ -82,7 +82,7 @@ export const Dashboard: React.FC = () => {
     );
   }
 
-  const { kpis, tendencia, top_vendedores, resumo_os } = data;
+  const { kpis, tendencia, top_vendedores, top_produtos, top_grupos, resumo_os } = data;
 
   return (
     <div className="space-y-4">
@@ -146,7 +146,44 @@ export const Dashboard: React.FC = () => {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <FaturamentoChart data={tendencia || []} />
-        <TopVendedoresCard vendedores={top_vendedores || []} />
+
+        {/* Rankings Grid */}
+        <div className="grid grid-cols-1 gap-4">
+          <RankingCard
+            title="Top Vendedores"
+            icon={Trophy}
+            items={(top_vendedores || []).map(v => ({
+              label: v.vendedor,
+              value: v.valor,
+              subValue: v.vendas,
+              subLabel: 'vendas'
+            }))}
+          />
+        </div>
+      </div>
+
+      {/* Product and Group Rankings */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <RankingCard
+          title="Top Produtos"
+          icon={Package}
+          items={(top_produtos || []).map(p => ({
+            label: p.produto,
+            value: p.valor,
+            subValue: p.quantidade,
+            subLabel: 'itens'
+          }))}
+        />
+        <RankingCard
+          title="Top Grupos"
+          icon={Layers}
+          items={(top_grupos || []).map(g => ({
+            label: g.grupo,
+            value: g.valor,
+            subValue: g.quantidade,
+            subLabel: 'itens'
+          }))}
+        />
       </div>
     </div>
   );

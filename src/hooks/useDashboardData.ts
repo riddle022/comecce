@@ -22,6 +22,18 @@ export interface TopVendedor {
   vendas: number;
 }
 
+export interface TopProduto {
+  produto: string;
+  valor: number;
+  quantidade: number;
+}
+
+export interface TopGrupo {
+  grupo: string;
+  valor: number;
+  quantidade: number;
+}
+
 export interface FormaPagamento {
   forma: string;
   valor: number;
@@ -37,6 +49,8 @@ export interface DashboardData {
   kpis: DashboardKPIs;
   tendencia: TendenciaItem[];
   top_vendedores: TopVendedor[];
+  top_produtos: TopProduto[];
+  top_grupos: TopGrupo[];
   formas_pagamento: FormaPagamento[];
   resumo_os: ResumoOS;
 }
