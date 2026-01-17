@@ -1,10 +1,10 @@
+import { DollarSign, Percent, PercentSquare, ShoppingCart, TrendingUp } from 'lucide-react';
 import React from 'react';
-import { DollarSign, ShoppingCart, TrendingUp, Percent, PercentSquare } from 'lucide-react';
-import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
+import { Bar, BarChart, CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { useGlobalFilters } from '../../contexts/GlobalFiltersContext';
+import { useSalesData } from '../../hooks/useSalesData';
 import { FilterPanel } from '../Common/FilterPanel';
 import { StatCard } from '../Dashboard/StatCard';
-import { useSalesData } from '../../hooks/useSalesData';
-import { useGlobalFilters } from '../../contexts/GlobalFiltersContext';
 
 export const ComercialPage: React.FC = () => {
   const { filters, updateFilters } = useGlobalFilters();
@@ -145,7 +145,7 @@ export const ComercialPage: React.FC = () => {
         <div className="bg-[#1E293B] border border-[#0F4C5C]/20 rounded-xl p-4">
           <h3 className="text-base font-semibold text-white mb-3">Ranking de Vendedores</h3>
           <ResponsiveContainer width="100%" height={250}>
-            <BarChart data={data.top_vendedores} layout="vertical" barSize={24}>
+            <BarChart data={data.top_vendedores} layout="vertical" barSize={24} margin={{ right: 60 }}>
               <defs>
                 <linearGradient id="rankingGradient" x1="0" y1="0" x2="1" y2="0">
                   <stop offset="0%" stopColor="#06B6D4" />
@@ -185,6 +185,22 @@ export const ComercialPage: React.FC = () => {
                 dataKey="valor"
                 fill="url(#rankingGradient)"
                 radius={[0, 4, 4, 0]}
+                label={(props: any) => {
+                  const { x, y, width, height, value } = props;
+                  if (value === null || value === undefined) return null;
+                  return (
+                    <text
+                      x={x + width + 5}
+                      y={y + height / 2 + 4}
+                      fill="#E2E8F0"
+                      fontSize={11}
+                      fontWeight={500}
+                      textAnchor="start"
+                    >
+                      {formatCurrency(value)}
+                    </text>
+                  );
+                }}
               />
             </BarChart>
           </ResponsiveContainer>
@@ -221,7 +237,7 @@ export const ComercialPage: React.FC = () => {
           <h3 className="text-base font-semibold text-white mb-3">Ranking Descontos por Vendedor</h3>
           {data.ranking_descontos && data.ranking_descontos.length > 0 ? (
             <ResponsiveContainer width="100%" height={250}>
-              <BarChart data={data.ranking_descontos} layout="vertical" barSize={24}>
+              <BarChart data={data.ranking_descontos} layout="vertical" barSize={24} margin={{ right: 60 }}>
                 <defs>
                   <linearGradient id="descontoGradient" x1="0" y1="0" x2="1" y2="0">
                     <stop offset="0%" stopColor="#F59E0B" />
@@ -265,6 +281,22 @@ export const ComercialPage: React.FC = () => {
                   dataKey="desconto_total"
                   fill="url(#descontoGradient)"
                   radius={[0, 4, 4, 0]}
+                  label={(props: any) => {
+                    const { x, y, width, height, value } = props;
+                    if (value === null || value === undefined) return null;
+                    return (
+                      <text
+                        x={x + width + 5}
+                        y={y + height / 2 + 4}
+                        fill="#E2E8F0"
+                        fontSize={11}
+                        fontWeight={500}
+                        textAnchor="start"
+                      >
+                        {formatCurrency(value)}
+                      </text>
+                    );
+                  }}
                 />
               </BarChart>
             </ResponsiveContainer>
