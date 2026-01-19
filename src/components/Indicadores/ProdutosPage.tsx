@@ -45,17 +45,14 @@ export const ProdutosPage: React.FC = () => {
         empresaIds: globalFilters.empresaIds
     });
 
-    // 2. Detailed Table Data (Server-Side Filtered)
+    // 2. Detailed Table Data (Aggregated Sellers)
     const {
-        vendedoresList,
         tableData,
-        loadingTable,
-        loadingList
+        loadingTable
     } = useProdutosVendedor({
         dataInicio: globalFilters.dataInicio,
         dataFim: globalFilters.dataFim,
-        empresaIds: globalFilters.empresaIds,
-        vendedor: selectedVendedor
+        empresaIds: globalFilters.empresaIds
     });
 
     const handleDateRangeChange = (newDateRange: { dataInicio: string; dataFim: string }) => {
@@ -93,15 +90,18 @@ export const ProdutosPage: React.FC = () => {
             })
         : [];
 
+    // Filter and Sort Sellers
     const sortedTableData = tableData
-        ? [...tableData].sort((a, b) => {
-            const modifier = sortDirVendedor === 'asc' ? 1 : -1;
-            const field = sortFieldVendedor as keyof typeof a;
-            if (typeof a[field] === 'string') {
-                return (a[field] as string).localeCompare(b[field] as string) * modifier;
-            }
-            return ((a[field] as number) - (b[field] as number)) * modifier;
-        })
+        ? [...tableData]
+            .filter(item => item.vendedor.toLowerCase().includes(selectedVendedor.toLowerCase()))
+            .sort((a, b) => {
+                const modifier = sortDirVendedor === 'asc' ? 1 : -1;
+                const field = sortFieldVendedor as keyof typeof a;
+                if (typeof a[field] === 'string') {
+                    return (a[field] as string).localeCompare(b[field] as string) * modifier;
+                }
+                return ((a[field] as number) - (b[field] as number)) * modifier;
+            })
         : [];
 
     return (
@@ -316,24 +316,22 @@ export const ProdutosPage: React.FC = () => {
                         </div>
                     </div>
 
-                    {/* Produtos por Vendedor Table (Server-Side) */}
+                    {/* Performance por Vendedor Table (Aggregated) */}
                     <div className="bg-[#1E293B] border border-[#0F4C5C]/20 rounded-xl p-6 relative">
                         <div className="flex flex-col md:flex-row md:items-center justify-between mb-4 gap-4">
                             <h3 className="text-lg font-semibold text-white">
-                                Produtos por Vendedor
-                                {selectedVendedor && <span className="text-emerald-400 ml-2">: {selectedVendedor}</span>}
+                                Performance por Vendedor
                             </h3>
-                            <select
-                                value={selectedVendedor}
-                                onChange={(e) => setSelectedVendedor(e.target.value)}
-                                disabled={loadingList}
-                                className="bg-[#0F172A] border border-[#0F4C5C]/20 rounded-lg px-4 py-2 text-white text-sm focus:outline-none focus:border-[#0F4C5C] disabled:opacity-50"
-                            >
-                                <option value="" disabled>Selecionar Vendedor</option>
-                                {vendedoresList.map(v => (
-                                    <option key={v} value={v}>{v}</option>
-                                ))}
-                            </select>
+                            <div className="relative">
+                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                                <input
+                                    type="text"
+                                    placeholder="Buscar vendedor..."
+                                    value={selectedVendedor}
+                                    onChange={(e) => setSelectedVendedor(e.target.value)}
+                                    className="bg-[#0F172A] border border-[#0F4C5C]/20 rounded-lg pl-9 pr-4 py-1.5 text-white text-sm focus:outline-none focus:border-[#0F4C5C] w-full md:w-64"
+                                />
+                            </div>
                         </div>
 
                         <div className="overflow-x-auto max-h-[400px] overflow-y-auto custom-scrollbar relative min-h-[100px]">
@@ -341,24 +339,21 @@ export const ProdutosPage: React.FC = () => {
                                 <div className="absolute inset-0 flex items-center justify-center bg-[#1E293B]/80 z-10">
                                     <div className="w-8 h-8 border-2 border-[#0F4C5C] border-t-transparent rounded-full animate-spin"></div>
                                 </div>
-                            ) : !selectedVendedor ? (
-                                <div className="flex items-center justify-center py-12 text-gray-400">
-                                    Selecione um vendedor para visualizar os dados
-                                </div>
                             ) : (
                                 <table className="w-full text-sm text-left text-gray-400">
                                     <thead className="text-xs text-gray-200 uppercase bg-[#0F172A] sticky top-0">
                                         <tr>
                                             {[
-                                                { label: 'Produto', key: 'produto', align: 'left' },
-                                                { label: 'Qtd', key: 'cantidad', align: 'right' },
-                                                { label: 'Total Desconto', key: 'desconto', align: 'right' },
-                                                { label: 'Faturamento', key: 'faturamento', align: 'right' }
+                                                { label: 'Vendedor', key: 'vendedor', align: 'left' },
+                                                { label: 'Faturamento', key: 'faturamento', align: 'right' },
+                                                { label: 'Ticket Médio', key: 'ticket_medio', align: 'right' },
+                                                { label: 'Total Desconto', key: 'total_desconto', align: 'right' },
+                                                { label: 'Qtde Vendida', key: 'quantidade_vendida', align: 'right' }
                                             ].map((col, idx) => (
                                                 <th
                                                     key={col.key}
                                                     onClick={() => handleSort(col.key, sortFieldVendedor, sortDirVendedor, setSortFieldVendedor, setSortDirVendedor)}
-                                                    className={`px-4 py-3 cursor-pointer hover:bg-[#0F4C5C]/20 transition-colors ${col.align === 'right' ? 'text-right' : ''} ${idx === 0 ? 'rounded-tl-lg' : ''} ${idx === 3 ? 'rounded-tr-lg' : ''}`}
+                                                    className={`px-4 py-3 cursor-pointer hover:bg-[#0F4C5C]/20 transition-colors ${col.align === 'right' ? 'text-right' : ''} ${idx === 0 ? 'rounded-tl-lg' : ''} ${idx === 4 ? 'rounded-tr-lg' : ''}`}
                                                 >
                                                     <div className={`flex items-center ${col.align === 'right' ? 'justify-end' : 'justify-start'} space-x-1`}>
                                                         <span>{col.label}</span>
@@ -373,20 +368,25 @@ export const ProdutosPage: React.FC = () => {
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        {tableData.length === 0 ? (
+                                        {sortedTableData.length === 0 ? (
                                             <tr>
-                                                <td colSpan={4} className="px-4 py-8 text-center text-gray-500">Nenhum dado encontrado</td>
+                                                <td colSpan={5} className="px-4 py-8 text-center text-gray-500">Nenhum dado encontrado</td>
                                             </tr>
                                         ) : (
                                             sortedTableData.map((item, index) => (
                                                 <tr key={index} className="border-b border-[#0F4C5C]/10 hover:bg-[#0F4C5C]/5">
-                                                    <td className="px-4 py-3 font-medium text-white">{item.produto}</td>
-                                                    <td className="px-4 py-3 text-right">{item.cantidad}</td>
-                                                    <td className="px-4 py-3 text-right text-red-400">
-                                                        {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.desconto)}
-                                                    </td>
+                                                    <td className="px-4 py-3 font-medium text-white">{item.vendedor}</td>
                                                     <td className="px-4 py-3 text-right text-emerald-400">
                                                         {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.faturamento)}
+                                                    </td>
+                                                    <td className="px-4 py-3 text-right text-blue-400">
+                                                        {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.ticket_medio)}
+                                                    </td>
+                                                    <td className="px-4 py-3 text-right text-red-400">
+                                                        {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.total_desconto)}
+                                                    </td>
+                                                    <td className="px-4 py-3 text-right text-white">
+                                                        {new Intl.NumberFormat('pt-BR').format(item.quantidade_vendida)}
                                                     </td>
                                                 </tr>
                                             ))

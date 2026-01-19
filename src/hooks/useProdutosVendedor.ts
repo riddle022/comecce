@@ -1,90 +1,58 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 
-// Types for Seller Detailed Data
-export interface ProdutoVendedor {
-    ds_vendedor: string;
-    produto: string;
+export interface PerformanceVendedor {
+
+    vendedor: string;
     faturamento: number;
-    cantidad: number;
-    desconto: number;
+    ticket_medio: number;
+    quantidade_vendida: number;
+    total_desconto: number;
 }
 
 interface UseProdutosVendedorParams {
     dataInicio: string;
     dataFim: string;
     empresaIds: string[];
-    vendedor: string; // 'Todos' or specific name
 }
 
-export function useProdutosVendedor({ dataInicio, dataFim, empresaIds, vendedor }: UseProdutosVendedorParams) {
-    const [vendedoresList, setVendedoresList] = useState<string[]>([]);
-    const [tableData, setTableData] = useState<ProdutoVendedor[]>([]);
-    const [loadingList, setLoadingList] = useState(true);
+export function useProdutosVendedor({ dataInicio, dataFim, empresaIds }: UseProdutosVendedorParams) {
+    const [tableData, setTableData] = useState<PerformanceVendedor[]>([]);
     const [loadingTable, setLoadingTable] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
-    // 1. Fetch Sellers List (Only on mount or company change)
-    useEffect(() => {
-        async function fetchVendedores() {
-            try {
-                setLoadingList(true);
-                if (empresaIds.length === 0) return;
-
-                const { data, error } = await supabase.rpc('get_lista_vendedores', {
-                    p_empresa_ids: empresaIds
-                });
-
-                if (error) throw error;
-                // Sort alphabetically
-                setVendedoresList((data || []).sort());
-            } catch (err) {
-                console.error('Erro ao buscar lista de vendedores:', err);
-            } finally {
-                setLoadingList(false);
-            }
-        }
-
-        fetchVendedores();
-    }, [empresaIds]); // Depend on empresaIds only
-
-    // 2. Fetch Detailed Table (Depends on filters + selected Vendedor)
+    // Fetch Performance Vendedores Data
     useEffect(() => {
         async function fetchTableData() {
             try {
                 setLoadingTable(true);
                 setError(null);
 
-                if (empresaIds.length === 0 || !vendedor) {
+                if (empresaIds.length === 0) {
                     setTableData([]);
                     setLoadingTable(false);
                     return;
                 }
 
-                console.log(`Fetching detail for vendedor: ${vendedor}`);
-                const { data, error } = await supabase.rpc('get_detalhe_produtos_vendedor', {
+                console.log('Fetching performance performance vendedores...');
+                const { data, error } = await supabase.rpc('get_performance_vendedores', {
                     p_data_inicio: dataInicio,
                     p_data_fim: dataFim,
-                    p_empresa_ids: empresaIds,
-                    p_vendedor: vendedor,
-                    p_limit: 100 // Loading 100 at a time for now as per plan to keep it simple but scalable
+                    p_empresa_ids: empresaIds
                 });
 
                 if (error) throw error;
                 setTableData(data || []);
             } catch (err) {
-                console.error('Erro ao buscar detalhe de produtos por vendedor:', err);
-                setError('Falha ao carregar tabela de vendedores');
+                console.error('Erro ao buscar performance de vendedores:', err);
+                setError('Falha ao carregar performance de vendedores');
             } finally {
                 setLoadingTable(false);
             }
         }
 
-        // Debounce slightly to prevent thrashing if user clicks fast
-        const timeoutId = setTimeout(fetchTableData, 100);
-        return () => clearTimeout(timeoutId);
+        fetchTableData();
+    }, [dataInicio, dataFim, empresaIds]);
 
-    }, [dataInicio, dataFim, empresaIds, vendedor]);
-
-    return { vendedoresList, tableData, loadingList, loadingTable, error };
+    return { tableData, loadingTable, error };
 }
