@@ -224,17 +224,38 @@ export const FaturamentoTable: React.FC<FaturamentoTableProps> = ({ data, dateRa
         };
     }, [tableData, isCompareMode]);
 
-    // Partial Month Detection
     // Partial Month Detection (Visual Warning at bottom)
     const partialMonthWarning = useMemo(() => {
-        if (!isCompareMode || !tableData.length) return null;
+        if (!isCompareMode || !dateRange || !tableData.length) return null;
 
-        const partials = tableData.filter((row: any) => row.isPartial);
-        if (partials.length === 0) return null;
+        const messages: string[] = [];
+        // Use T12:00:00 to avoid timezone shifts
+        const filterStart = typeof dateRange.start === 'string' ? new Date(dateRange.start + 'T12:00:00') : new Date(dateRange.start);
+        const filterEnd = typeof dateRange.end === 'string' ? new Date(dateRange.end + 'T12:00:00') : new Date(dateRange.end);
 
-        return partials.map((row: any) => `${row.periodo} é parcial.`).join(" ");
+        // Helper for formatting date as DD/MM/YYYY
+        const formatDateLong = (date: Date) => {
+            return new Intl.DateTimeFormat('pt-BR').format(date);
+        };
 
-    }, [tableData, isCompareMode]);
+        // Check if start date is not the 1st
+        if (filterStart.getDate() > 1) {
+            messages.push(`mês inicial considera dados a partir de ${formatDateLong(filterStart)}`);
+        }
+
+        // Check if end date is not the last day
+        const monthEnd = new Date(filterEnd.getFullYear(), filterEnd.getMonth() + 1, 0);
+        if (filterEnd.getDate() < monthEnd.getDate()) {
+            messages.push(`mês final considera dados até ${formatDateLong(filterEnd)}`);
+        }
+
+        if (messages.length === 0) return null;
+
+        // Capitalize first letter of combined message and join
+        const combined = messages.join('. ') + '.';
+        return combined.charAt(0).toUpperCase() + combined.slice(1);
+
+    }, [tableData, dateRange, isCompareMode]);
 
     return (
         <>
@@ -257,8 +278,8 @@ export const FaturamentoTable: React.FC<FaturamentoTableProps> = ({ data, dateRa
                         <thead className="text-xs text-gray-200 uppercase bg-[#0F172A]">
                             <tr>
                                 {isCompareMode && <th className="px-4 py-3">Período</th>}
-                                <th className={`px-4 py-3 text-right ${isCompareMode ? 'pr-[68px]' : ''}`}>Faturamento Bruto</th>
-                                <th className={`px-4 py-3 text-right ${isCompareMode ? 'pr-[68px]' : ''}`}>Faturamento Líquido</th>
+                                <th className="px-4 py-3 text-center">Faturamento Bruto</th>
+                                <th className="px-4 py-3 text-center">Faturamento Líquido</th>
                                 <th className="px-4 py-3 text-center">Nº Vendas</th>
                                 <th className="px-4 py-3 text-right">Ticket Médio</th>
 
@@ -271,7 +292,7 @@ export const FaturamentoTable: React.FC<FaturamentoTableProps> = ({ data, dateRa
                             {tableData.map((row: any, index) => (
                                 <tr key={index} className="border-b border-[#0F4C5C]/10 hover:bg-[#0F4C5C]/5">
                                     {isCompareMode && <td className="px-4 py-3 font-medium text-white">{row.periodo}</td>}
-                                    <td className="px-4 py-3 text-right text-cyan-400">
+                                    <td className="px-4 py-3 text-center text-cyan-400">
                                         <div className="inline-block min-w-[120px] text-right">{formatCurrency(row.faturamento_bruto)}</div>
                                         {isCompareMode && (
                                             <VariationIndicator
@@ -282,7 +303,7 @@ export const FaturamentoTable: React.FC<FaturamentoTableProps> = ({ data, dateRa
                                             />
                                         )}
                                     </td>
-                                    <td className="px-4 py-3 text-right text-emerald-400">
+                                    <td className="px-4 py-3 text-center text-emerald-400">
                                         <div className="inline-block min-w-[120px] text-right">{formatCurrency(row.faturamento_liquido)}</div>
                                         {isCompareMode && (
                                             <VariationIndicator
@@ -308,8 +329,14 @@ export const FaturamentoTable: React.FC<FaturamentoTableProps> = ({ data, dateRa
                             {isCompareMode && totalRow && (
                                 <tr className="bg-[#0F172A]/50 font-bold border-t border-[#0F4C5C]/30 text-white">
                                     <td className="px-4 py-3 text-white">TOTAL</td>
-                                    <td className="px-4 py-3 text-right">{formatCurrency(totalRow.faturamento_bruto)}</td>
-                                    <td className="px-4 py-3 text-right">{formatCurrency(totalRow.faturamento_liquido)}</td>
+                                    <td className="px-4 py-3 text-center">
+                                        <div className="inline-block min-w-[120px] text-right">{formatCurrency(totalRow.faturamento_bruto)}</div>
+                                        {isCompareMode && <span className="ml-2 inline-flex w-[60px]"></span>}
+                                    </td>
+                                    <td className="px-4 py-3 text-center">
+                                        <div className="inline-block min-w-[120px] text-right">{formatCurrency(totalRow.faturamento_liquido)}</div>
+                                        {isCompareMode && <span className="ml-2 inline-flex w-[60px]"></span>}
+                                    </td>
                                     <td className="px-4 py-3 text-center">{formatNumber(totalRow.numero_vendas)}</td>
                                     <td className="px-4 py-3 text-right">{formatCurrency(totalRow.ticket_medio)}</td>
 
