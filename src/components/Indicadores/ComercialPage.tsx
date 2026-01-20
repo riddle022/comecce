@@ -1,10 +1,9 @@
-import { DollarSign, Percent, PercentSquare, ShoppingCart, TrendingUp } from 'lucide-react';
 import React, { useState, useMemo } from 'react';
 import { Bar, BarChart, CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { useGlobalFilters } from '../../contexts/GlobalFiltersContext';
 import { useSalesData } from '../../hooks/useSalesData';
 import { FilterPanel } from '../Common/FilterPanel';
-import { StatCard } from '../Dashboard/StatCard';
+import { FaturamentoTable } from './FaturamentoTable';
 
 export const ComercialPage: React.FC = () => {
   const { filters, updateFilters } = useGlobalFilters();
@@ -28,10 +27,6 @@ export const ComercialPage: React.FC = () => {
       style: 'currency',
       currency: 'BRL'
     }).format(value);
-  };
-
-  const formatNumber = (value: number) => {
-    return new Intl.NumberFormat('pt-BR').format(value);
   };
 
   const [chartPeriod, setChartPeriod] = useState<'dia' | 'semana' | 'mes'>('mes');
@@ -141,44 +136,10 @@ export const ComercialPage: React.FC = () => {
         initialEmpresas={filters.empresaIds}
       />
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        <StatCard
-          title="Faturamento Bruto"
-          value={formatCurrency(data.kpis.faturamento_bruto)}
-          icon={DollarSign}
-          color="cyan"
-        />
-        <StatCard
-          title="Faturamento Líquido"
-          value={formatCurrency(data.kpis.faturamento_liquido)}
-          icon={DollarSign}
-          color="green"
-        />
-        <StatCard
-          title="Índice de Desconto Médio"
-          value={`${data.kpis.indice_desconto_medio || 0}%`}
-          icon={Percent}
-          color="orange"
-        />
-        <StatCard
-          title="Número de Vendas"
-          value={formatNumber(data.kpis.total_vendas)}
-          icon={ShoppingCart}
-          color="blue"
-        />
-        <StatCard
-          title="Ticket Médio"
-          value={formatCurrency(data.kpis.ticket_medio)}
-          icon={TrendingUp}
-          color="purple"
-        />
-        <StatCard
-          title="Desconto Total"
-          value={formatCurrency(data.kpis.desconto_total)}
-          icon={PercentSquare}
-          color="red"
-        />
-      </div>
+      <FaturamentoTable
+        data={data}
+        dateRange={{ start: filters.dataInicio, end: filters.dataFim }}
+      />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <div className="bg-[#1E293B] border border-[#0F4C5C]/20 rounded-xl p-4">

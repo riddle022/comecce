@@ -19,6 +19,10 @@ export interface SalesTrend {
   data: string;
   valor_bruto: number;
   valor_liquido: number;
+  quantidade_vendida: number;
+  desconto_total: number;
+  numero_vendas: number;
+  custo_total: number;
 }
 
 export interface TopSeller {

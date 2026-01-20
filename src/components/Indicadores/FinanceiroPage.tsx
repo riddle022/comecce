@@ -159,19 +159,19 @@ export const FinanceiroPage: React.FC = () => {
         />
         <StatCard
           title="Lucro Bruto Total"
-          value={formatCurrency(data.kpis.lucro_bruto)}
+          value={formatCurrency(data.kpis.lucro_bruto || 0)}
           icon={DollarSign}
           color="green"
         />
         <StatCard
           title="Margem de Lucro Média"
-          value={`${data.kpis.margem_lucro_media.toFixed(2)}%`}
+          value={`${(data.kpis.margem_lucro_media || 0).toFixed(2)}%`}
           icon={PieChartIcon}
           color="cyan"
         />
         <StatCard
           title="Custo Produtos (CMV)"
-          value={formatCurrency(data.kpis.custo_total)}
+          value={formatCurrency(data.kpis.custo_total || 0)}
           icon={TrendingDown}
           color="red"
         />
