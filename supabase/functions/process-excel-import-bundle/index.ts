@@ -166,7 +166,7 @@ function parseInteger(value: any): number | null {
 }
 
 // =============== PARSERS ===============
-function parseVendasExcel(buffer: ArrayBuffer): { vendas: VendaBase[]; erros: ErrorRecord[] } {
+function parseVendasExcel(buffer: ArrayBuffer, ds_empresa: string): { vendas: VendaBase[]; erros: ErrorRecord[] } {
   const vendas: VendaBase[] = [];
   const erros: ErrorRecord[] = [];
   try {
@@ -184,12 +184,23 @@ function parseVendasExcel(buffer: ArrayBuffer): { vendas: VendaBase[]; erros: Er
       try {
         const numero_venda = parseInteger(getCellValue(row, 'B'));
         if (numero_venda) {
+          const empresaArquivo = normalizeText(getCellValue(row, 'A'));
+          if (!compareNormalized(empresaArquivo, ds_empresa)) {
+            erros.push({
+              arquivo: 'Vendas',
+              linha,
+              valor: empresaArquivo,
+              descricao: `A empresa no arquivo ("${empresaArquivo}") não coincide com a empresa selecionada ("${ds_empresa}")`
+            });
+            return { vendas: [], erros };
+          }
+
           lastHeader = {
             numero_venda,
             data_venda: formatDateToISO(excelDateToJSDate(getCellValue(row, 'C'))),
             numero_os: parseInteger(getCellValue(row, 'D')),
             ds_vendedor: normalizeText(getCellValue(row, 'E')),
-            ds_cliente: normalizeText(getCellValue(row, 'A')), // Correct mapping (A)
+            ds_cliente: normalizeText(getCellValue(row, 'H')), // Mapeamento para Coluna H (Cliente Real)
             ds_forma_pagamento: normalizeText(getCellValue(row, 'Q')),
           };
         }
@@ -329,20 +340,6 @@ function parseOrdemServicoExcel(buffer: ArrayBuffer): { ordensServico: OrdemServ
 }
 
 // =============== VALIDATORS ===============
-function validateClienteEmpresa(vendas: VendaBase[], ds_empresa: string): ErrorRecord[] {
-  const erros: ErrorRecord[] = [];
-  for (const venda of vendas) {
-    if (venda.ds_cliente && !compareNormalized(venda.ds_cliente, ds_empresa)) {
-      erros.push({
-        arquivo: 'Vendas',
-        valor: venda.ds_cliente,
-        descricao: `A empresa no arquivo ("${venda.ds_cliente}") não coincide com a empresa selecionada ("${ds_empresa}")`
-      });
-      break;
-    }
-  }
-  return erros;
-}
 
 function enrichVendasWithProdutos(vendas: VendaBase[], produtos: ProdutoData[]): { vendasEnriquecidas: VendaEnriquecida[]; erros: ErrorRecord[] } {
   const vendasEnriquecidas: VendaEnriquecida[] = [];
@@ -493,15 +490,13 @@ Deno.serve(async (req: Request) => {
     const id_empresa = await getEmpresaIdByName(supabase, ds_empresa);
     if (!id_empresa) return new Response(JSON.stringify({ status: 'falha', erros: [{ arquivo: '', descricao: 'Empresa não encontrada' }] }), { status: 404, headers: corsHeaders });
 
-    const { vendas, erros: errosVendas } = parseVendasExcel(await vendasFile.arrayBuffer());
+    const { vendas, erros: errosVendas } = parseVendasExcel(await vendasFile.arrayBuffer(), ds_empresa);
     const { produtos, erros: errosProd } = parseProdutosExcel(await productosFile.arrayBuffer());
     const { ordensServico, erros: errosOS } = parseOrdemServicoExcel(await osFile.arrayBuffer());
 
     let allErros = [...errosVendas, ...errosProd, ...errosOS];
     if (allErros.length > 0) return new Response(JSON.stringify({ status: 'falha', erros: allErros }), { status: 400, headers: corsHeaders });
 
-    allErros = [...allErros, ...validateClienteEmpresa(vendas, ds_empresa)];
-    if (allErros.length > 0) return new Response(JSON.stringify({ status: 'falha', erros: allErros }), { status: 400, headers: corsHeaders });
 
     const { vendasEnriquecidas } = enrichVendasWithProdutos(vendas, produtos);
     const { ordensEnriquecidas } = enrichOrdemServicoWithProdutos(ordensServico, produtos);
