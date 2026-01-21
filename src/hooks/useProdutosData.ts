@@ -4,8 +4,10 @@ import { supabase } from '../lib/supabase';
 // Main Dashboard Data (KPIs + Top 50 Charts)
 export interface ProdutosKPIs {
     produtos_vendidos: number;
+    faturamento_total: number;
     lucro_bruto_total: number;
     custo_total_cmv: number;
+    desconto_total: number;
     margem_lucro_media: number;
     margem_bruta_valor: number;
     margem_bruta_percentual: number;
@@ -34,8 +36,6 @@ export interface PerformanceGrupo {
 
 export interface ProdutosData {
     kpis: ProdutosKPIs;
-    performance_produtos: PerformanceProduto[];
-    performance_grupos: PerformanceGrupo[];
 }
 
 interface UseProdutosDataParams {
