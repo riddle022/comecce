@@ -41,7 +41,7 @@ export const RankingCard: React.FC<RankingCardProps> = ({ title, icon: Icon, ite
                 <Icon className="w-4 h-4 text-[#0F4C5C]" />
                 <h3 className="text-base font-semibold text-white">{title}</h3>
             </div>
-            <div className="space-y-2">
+            <div className="space-y-2 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
                 {items && items.length > 0 ? (
                     items.map((item, index) => (
                         <div
