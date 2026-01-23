@@ -117,6 +117,9 @@ export interface HistoricoUpload {
   arquivo_vendas: string | null;
   arquivo_produtos: string | null;
   arquivo_os: string | null;
+  ds_arquivo: string | null;
+  tipo_importacao: string | null;
+  total_registros: number | null;
   total_vendas: number;
   total_os: number;
   status: string;

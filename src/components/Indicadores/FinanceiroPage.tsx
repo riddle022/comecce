@@ -3,7 +3,6 @@ import { TrendingUp, DollarSign, TrendingDown, PieChart as PieChartIcon } from '
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { FilterPanel } from '../Common/FilterPanel';
 import { StatCard } from '../Dashboard/StatCard';
-import { FormasPagamentoChart } from '../Dashboard/FormasPagamentoChart';
 import { useSalesData } from '../../hooks/useSalesData';
 import { useGlobalFilters } from '../../contexts/GlobalFiltersContext';
 
@@ -177,9 +176,7 @@ export const FinanceiroPage: React.FC = () => {
         />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <FormasPagamentoChart data={data.formas_pagamento} />
-
+      <div className="grid grid-cols-1 gap-4">
         <div className="bg-[#1E293B] border border-[#0F4C5C]/20 rounded-xl p-4 min-h-[350px] flex flex-col">
           <div className="flex flex-row items-center justify-between mb-4">
             <h3 className="text-base font-semibold text-white">Comparativo Bruto vs. Líquido</h3>

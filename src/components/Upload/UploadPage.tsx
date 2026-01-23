@@ -100,6 +100,7 @@ export const UploadPage: React.FC = () => {
   const [uploading, setUploading] = useState(false);
   const [result, setResult] = useState<ProcessingResult | null>(null);
   const [expandedErrors, setExpandedErrors] = useState<Set<string>>(new Set());
+  const [uploadType, setUploadType] = useState<'operacional' | 'financeiro' | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -158,12 +159,15 @@ export const UploadPage: React.FC = () => {
 
     if (validFiles.length === 0) return;
 
-    const newFiles = validFiles.slice(0, 3 - files.length).map(file => ({
-      file,
-      type: null as FileType | null
-    }));
-
-    setFiles(prev => [...prev, ...newFiles].slice(0, 3));
+    if (uploadType === 'financeiro') {
+      setFiles([{ file: validFiles[0], type: 'financeiro' as any }]);
+    } else {
+      const newFiles = validFiles.slice(0, 3 - files.length).map(file => ({
+        file,
+        type: null as FileType | null
+      }));
+      setFiles(prev => [...prev, ...newFiles].slice(0, 3));
+    }
   };
 
   const updateFileType = (index: number, type: FileType) => {
@@ -213,6 +217,7 @@ export const UploadPage: React.FC = () => {
   };
 
   const areAllFilesReady = (): boolean => {
+    if (uploadType === 'financeiro') return files.length === 1;
     if (files.length !== 3) return false;
     const types = files.map(f => f.type);
     return types.includes('vendas') && types.includes('produtos') && types.includes('ordem_servico');
@@ -228,26 +233,32 @@ export const UploadPage: React.FC = () => {
       const empresa = empresas.find(e => e.id_empresa === empresaSelecionada[0]);
       if (!empresa) throw new Error('Empresa não encontrada');
 
-      const formData = new FormData();
-      formData.append('ds_empresa', empresa.ds_empresa);
+      const functionName = uploadType === 'operacional'
+        ? 'process-excel-import-bundle'
+        : 'process-contas-pagar-import';
 
-      files.forEach(({ file, type }) => {
-        if (type) {
-          formData.append(type, file);
-        }
-      });
+      const body = new FormData();
+      body.append('ds_empresa', empresa.ds_empresa);
+
+      if (uploadType === 'operacional') {
+        files.forEach(({ file, type }) => {
+          if (type) body.append(type, file);
+        });
+      } else {
+        body.append('contas', files[0].file);
+      }
 
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error('Sessão não encontrada');
 
       const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/process-excel-import-bundle`,
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/${functionName}`,
         {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${session.access_token}`,
           },
-          body: formData
+          body
         }
       );
 
@@ -325,6 +336,7 @@ export const UploadPage: React.FC = () => {
                 empresasSelecionadas={empresaSelecionada}
                 onSelectionChange={setEmpresaSelecionada}
                 mode="single"
+                autoFocus={true}
               />
             )}
           </div>
@@ -338,19 +350,77 @@ export const UploadPage: React.FC = () => {
         </div>
       </div>
 
+      <div className="space-y-3 mb-8 max-w-2xl">
+        <h3 className="text-[10px] font-bold text-slate-500 uppercase tracking-widest pl-1">Tipo de Upload</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          {[
+            {
+              id: 'operacional',
+              title: 'Importação Operacional',
+              subtitle: 'Vendas, Produtos e OS',
+              icon: FileSpreadsheet,
+              color: 'indigo'
+            },
+            {
+              id: 'financeiro',
+              title: 'Contas a Pagar',
+              subtitle: 'Gestão financeira',
+              icon: Building2,
+              color: 'emerald'
+            },
+          ].map((type) => (
+            <button
+              key={type.id}
+              disabled={empresaSelecionada.length === 0}
+              onClick={() => {
+                setUploadType(type.id as any);
+                setFiles([]); // Limpiar archivos si cambia el tipo
+                setResult(null); // Limpiar resultado previo
+              }}
+              className={`relative overflow-hidden group flex items-center p-2.5 rounded-lg border transition-all duration-300 ${uploadType === type.id
+                ? 'bg-indigo-500/10 border-indigo-500/40 shadow-sm'
+                : 'bg-white/[0.01] border-white/5 hover:bg-white/[0.02] hover:border-white/10'
+                } ${empresaSelecionada.length === 0 ? 'opacity-40 grayscale pointer-events-none cursor-not-allowed scale-[0.98]' : ''}`}
+            >
+              <div className={`p-1.5 rounded-md mr-3 transition-colors ${uploadType === type.id ? 'bg-indigo-500 text-white' : 'bg-white/5 text-slate-500'
+                }`}>
+                <type.icon className="w-3.5 h-3.5" />
+              </div>
+
+              <div className="flex-1 text-left min-w-0">
+                <div className="flex items-center justify-between mb-0.5">
+                  <span className={`text-[11px] font-bold truncate transition-colors ${uploadType === type.id ? 'text-white' : 'text-slate-400 group-hover:text-slate-200'
+                    }`}>
+                    {type.title}
+                  </span>
+                  <div className={`w-3 h-3 rounded-full border-2 flex items-center justify-center transition-all ${uploadType === type.id ? 'border-indigo-500' : 'border-slate-800'
+                    }`}>
+                    {uploadType === type.id && <div className="w-1.5 h-1.5 rounded-full bg-indigo-500" />}
+                  </div>
+                </div>
+                <p className={`text-[9px] font-medium truncate ${uploadType === type.id ? 'text-indigo-300/60' : 'text-slate-600'
+                  }`}>
+                  {type.subtitle}
+                </p>
+              </div>
+            </button>
+          ))}
+        </div>
+      </div>
+
       <div
-        className={`relative overflow-hidden bg-white/[0.01] border border-dashed rounded-2xl transition-all duration-500 group/drop ${empresaSelecionada.length === 0
-          ? 'border-white/5 opacity-50 cursor-not-allowed'
-          : files.length >= 3
+        className={`relative overflow-hidden bg-white/[0.01] border border-dashed rounded-2xl transition-all duration-500 group/drop ${empresaSelecionada.length === 0 || !uploadType
+          ? 'border-white/5 opacity-50 cursor-not-allowed scale-[0.99]'
+          : (uploadType === 'operacional' ? files.length >= 3 : files.length >= 1)
             ? 'border-emerald-500/20 bg-emerald-500/5'
             : dragging
               ? 'border-indigo-500/50 bg-indigo-500/10'
               : 'border-white/10 hover:border-indigo-500/30 hover:bg-white/[0.02]'
           }`}
-        onDragEnter={empresaSelecionada.length > 0 && files.length < 3 ? handleDrag : undefined}
-        onDragLeave={empresaSelecionada.length > 0 && files.length < 3 ? handleDrag : undefined}
-        onDragOver={empresaSelecionada.length > 0 && files.length < 3 ? handleDrag : undefined}
-        onDrop={empresaSelecionada.length > 0 && files.length < 3 ? handleDrop : undefined}
+        onDragEnter={empresaSelecionada.length > 0 && uploadType && (uploadType === 'operacional' ? files.length < 3 : files.length < 1) ? handleDrag : undefined}
+        onDragLeave={empresaSelecionada.length > 0 && uploadType && (uploadType === 'operacional' ? files.length < 3 : files.length < 1) ? handleDrag : undefined}
+        onDragOver={empresaSelecionada.length > 0 && uploadType && (uploadType === 'operacional' ? files.length < 3 : files.length < 1) ? handleDrag : undefined}
+        onDrop={empresaSelecionada.length > 0 && uploadType && (uploadType === 'operacional' ? files.length < 3 : files.length < 1) ? handleDrop : undefined}
       >
         <div className="p-8 flex flex-col items-center justify-center space-y-4 relative z-10">
           <div className={`p-4 rounded-2xl transition-all duration-500 ${dragging
@@ -366,12 +436,19 @@ export const UploadPage: React.FC = () => {
             {empresaSelecionada.length === 0 ? (
               <div className="space-y-1">
                 <h3 className="text-base font-bold text-slate-400">Upload Bloqueado</h3>
-                <p className="text-[10px] text-slate-600 font-bold uppercase tracking-widest">Selecione uma empresa para habilitar</p>
+                <p className="text-[10px] text-slate-600 font-bold uppercase tracking-widest">Selecione uma empresa para continuar</p>
               </div>
-            ) : files.length >= 3 ? (
+            ) : !uploadType ? (
+              <div className="space-y-1">
+                <h3 className="text-base font-bold text-indigo-400/80">Quasi lá...</h3>
+                <p className="text-[10px] text-slate-600 font-bold uppercase tracking-widest">Escolha o tipo de importação acima</p>
+              </div>
+            ) : (uploadType === 'operacional' ? files.length >= 3 : files.length >= 1) ? (
               <div className="space-y-1">
                 <h3 className="text-base font-bold text-white">Pronto para processar</h3>
-                <p className="text-[10px] text-emerald-500/60 font-bold uppercase tracking-widest">Os 3 arquivos foram carregados</p>
+                <p className="text-[10px] text-emerald-500/60 font-bold uppercase tracking-widest">
+                  {uploadType === 'operacional' ? 'Los 3 archivos fueron cargados' : 'Archivo de cuentas cargado'}
+                </p>
               </div>
             ) : (
               <div className="space-y-4">
@@ -380,9 +457,9 @@ export const UploadPage: React.FC = () => {
                     {dragging ? 'Solte os arquivos agora' : 'Arraste os arquivos aqui'}
                   </h3>
                   <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">
-                    {files.length === 0
-                      ? '3 arquivos Excel obrigatórios (Vendas, Produtos, OS)'
-                      : `Arquivo(s) adicionado(s): ${files.length}/3`}
+                    {uploadType === 'operacional'
+                      ? (files.length === 0 ? '3 arquivos Excel obrigatórios (Vendas, Produtos, OS)' : `Arquivo(s) adicionado(s): ${files.length}/3`)
+                      : 'Arquivo Excel de Contas a Pagar'}
                   </p>
                 </div>
                 <button
@@ -396,7 +473,7 @@ export const UploadPage: React.FC = () => {
             <input
               ref={fileInputRef}
               type="file"
-              multiple
+              multiple={uploadType === 'operacional'}
               accept=".xls,.xlsx"
               onChange={handleFileSelect}
               className="hidden"
@@ -410,7 +487,7 @@ export const UploadPage: React.FC = () => {
             </span>
             <span className="flex items-center space-x-1.5">
               <div className="w-1 h-1 rounded-full bg-slate-800" />
-              <span>Bundle de 3</span>
+              <span>{uploadType === 'operacional' ? 'Bundle de 3' : 'Arquivo único'}</span>
             </span>
           </div>
         </div>
@@ -444,14 +521,20 @@ export const UploadPage: React.FC = () => {
                     </button>
                   </div>
 
-                  <FileTypeSelector
-                    value={fileWithType.type}
-                    onChange={(val) => updateFileType(index, val)}
-                    options={getAvailableTypes(fileWithType.type).map(type => ({
-                      value: type,
-                      label: getFileTypeLabel(type)
-                    }))}
-                  />
+                  {uploadType === 'operacional' ? (
+                    <FileTypeSelector
+                      value={fileWithType.type}
+                      onChange={(val) => updateFileType(index, val)}
+                      options={getAvailableTypes(fileWithType.type).map(type => ({
+                        value: type,
+                        label: getFileTypeLabel(type)
+                      }))}
+                    />
+                  ) : (
+                    <div className="text-[10px] font-bold text-indigo-400/80 bg-indigo-500/5 px-2 py-1 rounded border border-indigo-500/10 uppercase tracking-widest text-center">
+                      Cuentas a Pagar
+                    </div>
+                  )}
 
                 </div>
               </div>
@@ -462,9 +545,9 @@ export const UploadPage: React.FC = () => {
             <div className="bg-amber-500/5 border border-amber-500/10 rounded-lg p-3 flex items-center space-x-3">
               <AlertTriangle className="w-3.5 h-3.5 text-amber-500 flex-shrink-0" />
               <p className="text-[10px] text-slate-400 font-medium">
-                {files.length < 3
-                  ? `Adicione mais ${3 - files.length} arquivo(s) para completar o bundle.`
-                  : 'Selecione o tipo para cada arquivo.'}
+                {uploadType === 'operacional'
+                  ? (files.length < 3 ? `Adicione mais ${3 - files.length} arquivo(s) para completar o bundle.` : 'Selecione o tipo para cada arquivo.')
+                  : (files.length === 0 ? 'Adicione o arquivo de contas para processar.' : 'Aguardando processamento.')}
               </p>
             </div>
           ) : (
@@ -505,7 +588,7 @@ export const UploadPage: React.FC = () => {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 relative z-10">
-            {[
+            {uploadType === 'operacional' ? [
               { label: 'Vendas Importadas', value: result.total_vendas, color: 'emerald' },
               { label: 'Produtos Processados', value: result.total_produtos, color: 'emerald' },
               { label: 'Ordens de Serviço', value: result.total_ordens_servico, color: 'emerald' }
@@ -514,7 +597,12 @@ export const UploadPage: React.FC = () => {
                 <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">{stat.label}</p>
                 <p className="text-3xl font-black text-white tracking-tighter">{stat.value}</p>
               </div>
-            ))}
+            )) : (
+              <div className="col-span-full md:col-span-1 bg-white/[0.03] border border-white/5 rounded-2xl p-5 hover:bg-white/[0.05] transition-all">
+                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">Contas Importadas</p>
+                <p className="text-3xl font-black text-white tracking-tighter">{(result as any).total_processados}</p>
+              </div>
+            )}
           </div>
 
           {result.message && (
@@ -596,29 +684,6 @@ export const UploadPage: React.FC = () => {
         </div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {[
-          { title: 'Vendas', desc: 'Consolidado de vendas por período.', icon: FileSpreadsheet, color: 'emerald' },
-          { title: 'Produtos', desc: 'Mestre de produtos e movimentação.', icon: FileSpreadsheet, color: 'indigo' },
-          { title: 'Ordem de Serviço', desc: 'Registros de atendimentos e serviços.', icon: FileSpreadsheet, color: 'amber' }
-        ].map((tipo, i) => (
-          <div key={i} className="bg-white/[0.01] border border-white/5 rounded-xl p-4 hover:bg-white/[0.02] transition-all group">
-            <div className="flex items-center space-x-3 mb-2">
-              <div className={`p-2 rounded-lg bg-${tipo.color}-500/10 border border-${tipo.color}-500/20`}>
-                <tipo.icon className={`w-3.5 h-3.5 text-${tipo.color}-400`} />
-              </div>
-              <h3 className="text-sm font-bold text-white">{tipo.title}</h3>
-            </div>
-            <p className="text-[10px] text-slate-500 font-medium leading-relaxed mb-3">
-              {tipo.desc}
-            </p>
-            <div className="flex items-center space-x-2">
-              <div className="w-1 h-1 rounded-full bg-slate-800" />
-              <span className="text-[8px] font-bold text-slate-600 uppercase tracking-widest">Obrigatório</span>
-            </div>
-          </div>
-        ))}
-      </div>
 
     </div>
   );

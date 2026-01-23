@@ -7,6 +7,7 @@ interface CompanyListboxProps {
   empresasSelecionadas: string[];
   onSelectionChange: (ids: string[]) => void;
   mode?: 'single' | 'multiple';
+  autoFocus?: boolean;
 }
 
 export const CompanyListbox: React.FC<CompanyListboxProps> = ({
@@ -14,10 +15,18 @@ export const CompanyListbox: React.FC<CompanyListboxProps> = ({
   empresasSelecionadas,
   onSelectionChange,
   mode = 'multiple',
+  autoFocus = false,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (autoFocus && buttonRef.current) {
+      buttonRef.current.focus();
+    }
+  }, [autoFocus]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -88,6 +97,7 @@ export const CompanyListbox: React.FC<CompanyListboxProps> = ({
     <div className="relative" ref={dropdownRef}>
       <button
         type="button"
+        ref={buttonRef}
         onClick={() => setIsOpen(!isOpen)}
         className="w-full px-3 h-8 text-xs bg-slate-800/50 border border-slate-700/50 rounded-md text-slate-200 focus:outline-none focus:ring-1 focus:ring-cyan-500/50 transition-all flex items-center justify-between hover:bg-slate-800 hover:border-slate-600"
       >
