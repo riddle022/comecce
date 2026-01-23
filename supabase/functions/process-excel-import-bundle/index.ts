@@ -424,6 +424,14 @@ async function persistData(
   const uniqueVendasCount = new Set(vendas.map(v => v.numero_venda)).size;
   const uniqueOSCount = new Set(ordensServico.map(os => os.numero_os)).size;
 
+  // 4. Cleanup previous 'operacional' uploads for this company to avoid list duplication
+  // This will also cascade delete rows in tbl_vendas and tbl_ordem_servico
+  await supabase
+    .from('tbl_historico_uploads')
+    .delete()
+    .eq('id_empresa', id_empresa)
+    .eq('tipo_importacao', 'operacional');
+
   const { data: uploadData, error: uploadError } = await supabase
     .from('tbl_historico_uploads')
     .insert({
@@ -432,7 +440,9 @@ async function persistData(
       arquivo_produtos: fileNames.produtos,
       arquivo_os: fileNames.os,
       total_vendas: uniqueVendasCount,
-      total_os: uniqueOSCount
+      total_os: uniqueOSCount,
+      tipo_importacao: 'operacional',
+      status: 'sucesso'
     })
     .select('id_upload')
     .single();

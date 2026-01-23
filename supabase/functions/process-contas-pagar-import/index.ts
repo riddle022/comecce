@@ -6,6 +6,23 @@ const corsHeaders = {
     'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// --- UTILS ---
+function removeDiacritics(text: string): string {
+    return text.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+}
+
+function normalizeText(text: string | null | undefined): string {
+    if (!text) return '';
+    return text.toString().trim().replace(/\s+/g, ' ').substring(0, 100);
+}
+
+function compareNormalized(text1: string | null | undefined, text2: string | null | undefined): boolean {
+    if (!text1 || !text2) return normalizeText(text1) === normalizeText(text2);
+    const n1 = removeDiacritics(normalizeText(text1).toLowerCase());
+    const n2 = removeDiacritics(normalizeText(text2).toLowerCase());
+    return n1 === n2;
+}
+
 Deno.serve(async (req) => {
     if (req.method === 'OPTIONS') {
         return new Response('ok', { headers: corsHeaders });
@@ -42,13 +59,83 @@ Deno.serve(async (req) => {
         const workbook = XLSX.read(arrayBuffer, { type: 'array' });
         const sheetName = workbook.SheetNames[0];
         const sheet = workbook.Sheets[sheetName];
-        const rows = XLSX.utils.sheet_to_json(sheet) as any[];
 
-        // 3. Filter rows by Category 2002
-        const filteredRows = rows.filter(row => {
-            const categoria = String(row['Categoria'] || '').trim();
-            return /^[- ]*2\.002/.test(categoria);
-        });
+        // 3. Detect Headers and Filter/Validate Rows
+        // Read as array of arrays to find header row and validate column A
+        const rawData = XLSX.utils.sheet_to_json(sheet, { header: 1 }) as any[][];
+
+        // Find header row (the one containing "Categoria")
+        const headerRowIndex = rawData.findIndex(row =>
+            row.some(cell => String(cell).trim() === 'Categoria')
+        );
+
+        if (headerRowIndex === -1) {
+            return new Response(JSON.stringify({
+                status: 'falha',
+                erros: [{ arquivo: file.name, descricao: 'Arquivo inválido: Coluna "Categoria" não encontrada.' }]
+            }), { status: 400, headers: corsHeaders });
+        }
+
+        const headers = rawData[headerRowIndex].map(h => String(h || '').trim());
+        const colIndices = {
+            empresa: 0, // Column A as clarified by user
+            categoria: headers.indexOf('Categoria'),
+            dataEmissao: headers.indexOf('Data de Emissão'),
+            vencimento: headers.indexOf('Vencimento'),
+            mesCompetencia: headers.indexOf('Mês Competência'),
+            valorOriginal: headers.indexOf('Valor Original'),
+            valorPago: headers.indexOf('Valor Pago'),
+            dataPagamento: headers.indexOf('Data de Pagamento'),
+            status: headers.indexOf('Status'),
+            tipoDocumento: headers.indexOf('Tipo Documento'),
+            numeroDocumento: headers.indexOf('Número Documento'),
+            parcela: headers.indexOf('Parcela'),
+            descricao: headers.indexOf('Descrição'),
+            fornecedor: headers.indexOf('Fornecedor')
+        };
+
+        const filteredRows: any[] = [];
+        const dataRows = rawData.slice(headerRowIndex + 1);
+
+        for (let i = 0; i < dataRows.length; i++) {
+            const row = dataRows[i];
+            if (!row || row.length === 0) continue;
+
+            const categoria = String(row[colIndices.categoria] || '').trim();
+
+            // Filter by Category 2002
+            if (/^[- ]*2\.002/.test(categoria)) {
+                // Validate Empresa (Column A)
+                const empresaNoArquivo = String(row[colIndices.empresa] || '').trim();
+                if (empresaNoArquivo && !compareNormalized(empresaNoArquivo, ds_empresa)) {
+                    return new Response(JSON.stringify({
+                        status: 'falha',
+                        erros: [{
+                            arquivo: file.name,
+                            linha: headerRowIndex + i + 2,
+                            descricao: `A empresa no arquivo ("${empresaNoArquivo}") não coincide com a selecionada ("${ds_empresa}"). Por favor, verifique se selecionou a empresa correta no filtro.`
+                        }]
+                    }), { status: 400, headers: corsHeaders });
+                }
+
+                // Map to object format for processing
+                filteredRows.push({
+                    'Data de Emissão': row[colIndices.dataEmissao],
+                    'Vencimento': row[colIndices.vencimento],
+                    'Mês Competência': row[colIndices.mesCompetencia],
+                    'Valor Original': row[colIndices.valorOriginal],
+                    'Valor Pago': row[colIndices.valorPago],
+                    'Data de Pagamento': row[colIndices.dataPagamento],
+                    'Status': row[colIndices.status],
+                    'Tipo Documento': row[colIndices.tipoDocumento],
+                    'Número Documento': row[colIndices.numeroDocumento],
+                    'Parcela': row[colIndices.parcela],
+                    'Descrição': row[colIndices.descricao],
+                    'Categoria': row[colIndices.categoria],
+                    'Fornecedor': row[colIndices.fornecedor]
+                });
+            }
+        }
 
         if (filteredRows.length === 0) {
             return new Response(JSON.stringify({
@@ -59,7 +146,15 @@ Deno.serve(async (req) => {
             }), { status: 200, headers: corsHeaders });
         }
 
-        // 4. Create upload history record
+        // 4. Cleanup previous 'financeiro' uploads for this company to avoid list duplication
+        // This will also cascade delete rows in tbl_contas
+        await supabase
+            .from('tbl_historico_uploads')
+            .delete()
+            .eq('id_empresa', id_empresa)
+            .eq('tipo_importacao', 'financeiro');
+
+        // Create new upload history record
         const { data: uploadData, error: uploadError } = await supabase
             .from('tbl_historico_uploads')
             .insert({
