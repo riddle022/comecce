@@ -232,9 +232,9 @@ export const HistorialPage: React.FC = () => {
                       </div>
                     </td>
                     <td className="px-4 py-4">
-                      <span className={`text-[9px] font-bold px-2 py-0.5 rounded border uppercase tracking-widest ${item.tipo_importacao === 'Contas a Pagar'
-                          ? 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20'
-                          : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                      <span className={`text-[9px] font-bold px-2 py-0.5 rounded border uppercase tracking-widest ${item.tipo_importacao?.toLowerCase() === 'financeiro'
+                        ? 'bg-sky-500/10 text-sky-400 border-sky-500/20'
+                        : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
                         }`}>
                         {item.tipo_importacao || 'Operacional'}
                       </span>
@@ -276,7 +276,7 @@ export const HistorialPage: React.FC = () => {
                       </div>
                     </td>
                     <td className="px-4 py-4 text-xs text-center whitespace-nowrap">
-                      {item.tipo_importacao === 'Contas a Pagar' ? (
+                      {item.tipo_importacao?.toLowerCase() === 'financeiro' ? (
                         <div className="flex flex-col">
                           <span className="text-white font-black">{item.total_registros || 0}</span>
                           <span className="text-[8px] text-slate-500 font-bold uppercase">Contas</span>

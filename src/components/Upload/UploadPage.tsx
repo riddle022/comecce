@@ -422,75 +422,92 @@ export const UploadPage: React.FC = () => {
         onDragOver={empresaSelecionada.length > 0 && uploadType && (uploadType === 'operacional' ? files.length < 3 : files.length < 1) ? handleDrag : undefined}
         onDrop={empresaSelecionada.length > 0 && uploadType && (uploadType === 'operacional' ? files.length < 3 : files.length < 1) ? handleDrop : undefined}
       >
-        <div className="p-8 flex flex-col items-center justify-center space-y-4 relative z-10">
-          <div className={`p-4 rounded-2xl transition-all duration-500 ${dragging
-            ? 'bg-indigo-500 text-white scale-105 shadow-lg shadow-indigo-500/20'
-            : files.length >= 3
-              ? 'bg-emerald-500/10 text-emerald-400'
+        {/* Variante COMPACTA cuando los archivos están listos O hay resultados */}
+        {areAllFilesReady() || result !== null ? (
+          <div className="px-4 py-3 flex items-center justify-center space-x-3 relative z-10">
+            <div className={`p-1.5 rounded-lg ${result?.status === 'sucesso' ? 'bg-emerald-500/10' : result?.status === 'falha' ? 'bg-rose-500/10' : 'bg-emerald-500/10'}`}>
+              {result?.status === 'sucesso' ? (
+                <CheckCircle className="w-4 h-4 text-emerald-400" />
+              ) : result?.status === 'falha' ? (
+                <XCircle className="w-4 h-4 text-rose-400" />
+              ) : (
+                <CheckCircle className="w-4 h-4 text-emerald-400" />
+              )}
+            </div>
+            <div className="flex items-center space-x-2">
+              <span className="text-sm font-bold text-white">
+                {result?.status === 'sucesso'
+                  ? 'Procesado con éxito'
+                  : result?.status === 'falha'
+                    ? 'Procesado con errores'
+                    : uploadType === 'operacional' ? '3 archivos listos' : 'Archivo listo'}
+              </span>
+              <div className={`w-1 h-1 rounded-full ${result?.status === 'sucesso' ? 'bg-emerald-500' : result?.status === 'falha' ? 'bg-rose-500' : 'bg-emerald-500'}`} />
+            </div>
+          </div>
+        ) : (
+          /* Variante COMPLETA para upload */
+          <div className="p-8 flex flex-col items-center justify-center space-y-4 relative z-10">
+            <div className={`p-4 rounded-2xl transition-all duration-500 ${dragging
+              ? 'bg-indigo-500 text-white scale-105 shadow-lg shadow-indigo-500/20'
               : 'bg-white/5 text-slate-400 group-hover/drop:text-indigo-400 group-hover/drop:bg-indigo-500/10'
-            }`}>
-            {files.length >= 3 ? <CheckCircle className="w-8 h-8" /> : <Upload className="w-8 h-8" />}
-          </div>
+              }`}>
+              <Upload className="w-8 h-8" />
+            </div>
 
-          <div className="text-center">
-            {empresaSelecionada.length === 0 ? (
-              <div className="space-y-1">
-                <h3 className="text-base font-bold text-slate-400">Upload Bloqueado</h3>
-                <p className="text-[10px] text-slate-600 font-bold uppercase tracking-widest">Selecione uma empresa para continuar</p>
-              </div>
-            ) : !uploadType ? (
-              <div className="space-y-1">
-                <h3 className="text-base font-bold text-indigo-400/80">Quasi lá...</h3>
-                <p className="text-[10px] text-slate-600 font-bold uppercase tracking-widest">Escolha o tipo de importação acima</p>
-              </div>
-            ) : (uploadType === 'operacional' ? files.length >= 3 : files.length >= 1) ? (
-              <div className="space-y-1">
-                <h3 className="text-base font-bold text-white">Pronto para processar</h3>
-                <p className="text-[10px] text-emerald-500/60 font-bold uppercase tracking-widest">
-                  {uploadType === 'operacional' ? 'Los 3 archivos fueron cargados' : 'Archivo de cuentas cargado'}
-                </p>
-              </div>
-            ) : (
-              <div className="space-y-4">
+            <div className="text-center">
+              {empresaSelecionada.length === 0 ? (
                 <div className="space-y-1">
-                  <h3 className="text-base font-bold text-white group-hover/drop:text-indigo-50 transition-colors">
-                    {dragging ? 'Solte os arquivos agora' : 'Arraste os arquivos aqui'}
-                  </h3>
-                  <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">
-                    {uploadType === 'operacional'
-                      ? (files.length === 0 ? '3 arquivos Excel obrigatórios (Vendas, Produtos, OS)' : `Arquivo(s) adicionado(s): ${files.length}/3`)
-                      : 'Arquivo Excel de Contas a Pagar'}
-                  </p>
+                  <h3 className="text-base font-bold text-slate-400">Upload Bloqueado</h3>
+                  <p className="text-[10px] text-slate-600 font-bold uppercase tracking-widest">Selecione uma empresa para continuar</p>
                 </div>
-                <button
-                  onClick={() => fileInputRef.current?.click()}
-                  className="px-6 py-2 bg-white/5 hover:bg-white/10 text-white rounded-lg font-bold text-xs border border-white/10 transition-all"
-                >
-                  Procurar Arquivos
-                </button>
-              </div>
-            )}
-            <input
-              ref={fileInputRef}
-              type="file"
-              multiple={uploadType === 'operacional'}
-              accept=".xls,.xlsx"
-              onChange={handleFileSelect}
-              className="hidden"
-            />
-          </div>
+              ) : !uploadType ? (
+                <div className="space-y-1">
+                  <h3 className="text-base font-bold text-indigo-400/80">Quasi lá...</h3>
+                  <p className="text-[10px] text-slate-600 font-bold uppercase tracking-widest">Escolha o tipo de importação acima</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="space-y-1">
+                    <h3 className="text-base font-bold text-white group-hover/drop:text-indigo-50 transition-colors">
+                      {dragging ? 'Solte os arquivos agora' : 'Arraste os arquivos aqui'}
+                    </h3>
+                    <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">
+                      {uploadType === 'operacional'
+                        ? (files.length === 0 ? '3 arquivos Excel obrigatórios (Vendas, Produtos, OS)' : `Arquivo(s) adicionado(s): ${files.length}/3`)
+                        : 'Arquivo Excel de Contas a Pagar'}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    className="px-6 py-2 bg-white/5 hover:bg-white/10 text-white rounded-lg font-bold text-xs border border-white/10 transition-all"
+                  >
+                    Procurar Arquivos
+                  </button>
+                </div>
+              )}
+              <input
+                ref={fileInputRef}
+                type="file"
+                multiple={uploadType === 'operacional'}
+                accept=".xls,.xlsx"
+                onChange={handleFileSelect}
+                className="hidden"
+              />
+            </div>
 
-          <div className="flex items-center space-x-4 text-[9px] font-bold text-slate-600 uppercase tracking-widest">
-            <span className="flex items-center space-x-1.5">
-              <div className="w-1 h-1 rounded-full bg-slate-800" />
-              <span>XLS, XLSX</span>
-            </span>
-            <span className="flex items-center space-x-1.5">
-              <div className="w-1 h-1 rounded-full bg-slate-800" />
-              <span>{uploadType === 'operacional' ? 'Bundle de 3' : 'Arquivo único'}</span>
-            </span>
+            <div className="flex items-center space-x-4 text-[9px] font-bold text-slate-600 uppercase tracking-widest">
+              <span className="flex items-center space-x-1.5">
+                <div className="w-1 h-1 rounded-full bg-slate-800" />
+                <span>XLS, XLSX</span>
+              </span>
+              <span className="flex items-center space-x-1.5">
+                <div className="w-1 h-1 rounded-full bg-slate-800" />
+                <span>{uploadType === 'operacional' ? 'Bundle de 3' : 'Arquivo único'}</span>
+              </span>
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
 

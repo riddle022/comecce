@@ -64,6 +64,7 @@ export const CompanyListbox: React.FC<CompanyListboxProps> = ({
         ? empresasSelecionadas.filter(e => e !== id)
         : [...empresasSelecionadas, id];
       onSelectionChange(newSelection);
+      setIsOpen(false);
     }
   };
 
@@ -73,6 +74,7 @@ export const CompanyListbox: React.FC<CompanyListboxProps> = ({
     } else {
       onSelectionChange(empresas.map(e => e.id_empresa));
     }
+    setIsOpen(false);
   };
 
   const validSelectedIds = empresasSelecionadas.filter(id =>
