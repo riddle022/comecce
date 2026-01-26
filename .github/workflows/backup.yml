@@ -2,7 +2,7 @@ name: Backup automático do repositório
 
 on:
   schedule:
-    - cron: '0 3 * * *' # todos os dias às 01:00 UTC
+    - cron: '0 1 * * *' # todos os dias às 01:00 UTC
   workflow_dispatch:
 
 jobs:
@@ -12,9 +12,9 @@ jobs:
     steps:
       - name: Clonar repositório (mirror)
         run: |
-          git clone --mirror https://x-access-token:${{ secrets.BACKUP_TOKEN }}@github.com/riddle022/comecce.git
+          git clone --mirror https://x-access-token:${{ secrets.BACKUP_TOKEN }}@github.com/riddle022/comece.git
 
       - name: Enviar backup para repositório destino
         run: |
-          cd SEU_REPO.git
-          git push --mirror https://x-access-token:${{ secrets.BACKUP_TOKEN }}@github.com/riddle022/comecce-backup.git
+          cd comece.git
+          git push --mirror https://x-access-token:${{ secrets.BACKUP_TOKEN }}@github.com/riddle022/comece-backup.git
