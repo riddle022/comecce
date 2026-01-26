@@ -16,5 +16,5 @@ jobs:
 
       - name: Enviar backup para repositório destino
         run: |
-          cd comece.git
+          cd comecce.git
           git push --mirror https://x-access-token:${{ secrets.BACKUP_TOKEN }}@github.com/riddle022/comecce-backup.git
