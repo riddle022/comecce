@@ -12,7 +12,7 @@ jobs:
     steps:
       - name: Clonar repositório (mirror)
         run: |
-          git clone --mirror https://x-access-token:${{ secrets.BACKUP_TOKEN }}@github.com/riddle022/comece.git
+          git clone --mirror https://x-access-token:${{ secrets.BACKUP_TOKEN }}@github.com/riddle022/comecce.git
 
       - name: Enviar backup para repositório destino
         run: |
