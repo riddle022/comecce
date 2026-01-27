@@ -185,9 +185,35 @@ export const ComprasPage: React.FC = () => {
 
     if (error) {
         return (
-            <div className="p-6 text-center bg-red-900/20 border border-red-500/30 rounded-xl text-red-200">
-                <h3 className="text-lg font-semibold">Erro ao carregar dados</h3>
-                <p>{error}</p>
+            <div className="space-y-6">
+                <FilterPanel
+                    onDateRangeChange={handleDateRangeChange}
+                    onEmpresasChange={handleEmpresasChange}
+                    initialDateRange={{ dataInicio: filters.dataInicio, dataFim: filters.dataFim }}
+                    initialEmpresas={filters.empresaIds}
+                />
+                <div className="p-6 text-center bg-red-900/20 border border-red-500/30 rounded-xl text-red-200">
+                    <h3 className="text-lg font-semibold">Erro ao carregar dados</h3>
+                    <p>{error}</p>
+                </div>
+            </div>
+        );
+    }
+
+    if (!data || filters.empresaIds.length === 0) {
+        return (
+            <div className="space-y-6">
+                <FilterPanel
+                    onDateRangeChange={handleDateRangeChange}
+                    onEmpresasChange={handleEmpresasChange}
+                    initialDateRange={{ dataInicio: filters.dataInicio, dataFim: filters.dataFim }}
+                    initialEmpresas={filters.empresaIds}
+                />
+                <div className="bg-[#1E293B] border border-slate-700/50 rounded-xl p-12">
+                    <div className="text-center">
+                        <p className="text-gray-400">Selecione empresas para visualizar os dados</p>
+                    </div>
+                </div>
             </div>
         );
     }
@@ -323,7 +349,7 @@ export const ComprasPage: React.FC = () => {
 
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                     {/* Ranking Chart (Horizontal Bars) - REPLACES PIE CHART for better readability */}
-                    <div className="bg-[#1E293B] border border-slate-700 rounded-xl p-6 shadow-xl flex flex-col">
+                    <div className="bg-[#1E293B] border border-slate-700 rounded-xl p-6 shadow-xl flex flex-col relative z-20">
                         <h4 className="text-sm font-semibold text-slate-300 mb-4">Ranking: Onde gastamos mais?</h4>
                         <div className="flex-1 min-h-[500px]">
                             <ResponsiveContainer width="100%" height="100%">
@@ -344,6 +370,7 @@ export const ComprasPage: React.FC = () => {
                                     <Tooltip
                                         cursor={{ fill: '#334155', opacity: 0.1 }}
                                         contentStyle={{ backgroundColor: '#0F172A', borderColor: '#334155', borderRadius: '8px', color: '#fff' }}
+                                        wrapperStyle={{ zIndex: 1000 }}
                                         formatter={(value?: number) => [formatCurrency(value || 0), 'Valor']}
                                     />
                                     <Bar dataKey="value" name="Valor" radius={[0, 4, 4, 0]} barSize={24}>
@@ -424,7 +451,7 @@ export const ComprasPage: React.FC = () => {
                                 </span>
                             </div>
 
-                            <div className="overflow-y-auto max-h-[500px] flex-1 scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent">
+                            <div className="overflow-y-auto max-h-[400px] flex-1 scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent">
                                 <table className="w-full text-left">
                                     <thead className="bg-slate-900/90 text-slate-400 sticky top-0 z-10 backdrop-blur-sm">
                                         <tr>

@@ -29,6 +29,12 @@ export const usePurchasesData = ({ dataInicio, dataFim, empresaIds }: UsePurchas
                 setLoading(true);
                 setError(null);
 
+                if (!empresaIds || empresaIds.length === 0) {
+                    setData(null);
+                    setLoading(false);
+                    return;
+                }
+
                 let allData: PurchaseItem[] = [];
                 let from = 0;
                 const pageSize = 1000;

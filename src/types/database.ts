@@ -120,6 +120,8 @@ export interface HistoricoUpload {
   ds_arquivo: string | null;
   tipo_importacao: string | null;
   total_registros: number | null;
+  total_financeiro?: number | null;
+  arquivo_financeiro?: string | null;
   total_vendas: number;
   total_os: number;
   status: string;

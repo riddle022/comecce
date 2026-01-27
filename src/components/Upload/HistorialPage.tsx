@@ -210,7 +210,7 @@ export const HistorialPage: React.FC = () => {
                   <th className="px-6 py-4 text-left text-xs font-bold text-slate-400 uppercase tracking-widest">Empresa</th>
                   <th className="px-4 py-4 text-left text-xs font-bold text-slate-400 uppercase tracking-widest">Tipo</th>
                   <th className="px-6 py-4 text-left text-xs font-bold text-slate-400 uppercase tracking-widest">Arquivos</th>
-                  <th className="px-4 py-4 text-left text-xs font-bold text-slate-400 uppercase tracking-widest text-center">Registos</th>
+                  <th className="px-4 py-4 text-left text-xs font-bold text-slate-400 uppercase tracking-widest text-center">Registros</th>
                   <th className="px-4 py-4 text-left text-xs font-bold text-slate-400 uppercase tracking-widest text-center">Status</th>
                   <th className="px-6 py-4 text-right text-xs font-bold text-slate-400 uppercase tracking-widest">Ações</th>
                 </tr>
@@ -232,9 +232,11 @@ export const HistorialPage: React.FC = () => {
                       </div>
                     </td>
                     <td className="px-4 py-4">
-                      <span className={`text-[9px] font-bold px-2 py-0.5 rounded border uppercase tracking-widest ${item.tipo_importacao?.toLowerCase() === 'financeiro'
-                        ? 'bg-sky-500/10 text-sky-400 border-sky-500/20'
-                        : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                      <span className={`text-[9px] font-bold px-2 py-0.5 rounded border uppercase tracking-widest ${item.tipo_importacao?.toLowerCase() === 'compras'
+                        ? 'bg-rose-500/10 text-rose-400 border-rose-500/20'
+                        : item.tipo_importacao?.toLowerCase() === 'financeiro'
+                          ? 'bg-sky-500/10 text-sky-400 border-sky-500/20'
+                          : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
                         }`}>
                         {item.tipo_importacao || 'Operacional'}
                       </span>
@@ -246,6 +248,14 @@ export const HistorialPage: React.FC = () => {
                             <FileSpreadsheet className="w-3 h-3 text-indigo-400/50" />
                             <span className="truncate max-w-[200px] text-white font-medium" title={item.ds_arquivo}>
                               {item.ds_arquivo}
+                            </span>
+                          </div>
+                        )}
+                        {(item as any).arquivo_financeiro && (
+                          <div className="flex items-center space-x-2 text-[10px] text-slate-400">
+                            <FileSpreadsheet className="w-3 h-3 text-sky-500/50" />
+                            <span className="truncate max-w-[200px] text-white font-medium" title={(item as any).arquivo_financeiro}>
+                              {(item as any).arquivo_financeiro}
                             </span>
                           </div>
                         )}
@@ -276,9 +286,11 @@ export const HistorialPage: React.FC = () => {
                       </div>
                     </td>
                     <td className="px-4 py-4 text-xs text-center whitespace-nowrap">
-                      {item.tipo_importacao?.toLowerCase() === 'financeiro' ? (
+                      {['financeiro', 'compras'].includes(item.tipo_importacao?.toLowerCase() || '') ? (
                         <div className="flex flex-col">
-                          <span className="text-white font-black">{item.total_registros || 0}</span>
+                          <span className="text-white font-black">
+                            {(item as any).total_financeiro ?? item.total_registros ?? 0}
+                          </span>
                           <span className="text-[8px] text-slate-500 font-bold uppercase">Contas</span>
                         </div>
                       ) : (

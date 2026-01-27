@@ -66,6 +66,7 @@ Deno.serve(async (req) => {
                 .insert({
                     id_empresa: id_empresa,
                     arquivo_financeiro: file.name,
+                    tipo_importacao: 'Compras',
                     status: 'processando'
                 })
                 .select('id_upload')
@@ -272,6 +273,7 @@ Deno.serve(async (req) => {
         if (id_upload) {
             await supabase.from('tbl_historico_uploads').update({
                 total_financeiro: finalRows.length,
+                total_registros: finalRows.length,
                 status: 'sucesso'
             }).eq('id_upload', id_upload);
         }
