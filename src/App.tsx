@@ -1,28 +1,30 @@
 import React from 'react';
-import { AuthProvider, useAuth } from './contexts/AuthContext';
-import { PermissionsProvider } from './contexts/PermissionsContext';
-import { GlobalFiltersProvider } from './contexts/GlobalFiltersContext';
-import { LoginPage } from './components/Auth/LoginPage';
-import { Sidebar } from './components/Layout/Sidebar';
-import { Header } from './components/Layout/Header';
-import { Dashboard } from './components/Dashboard/Dashboard';
-import { UsuariosPage } from './components/Gerenciador/UsuariosPage';
-import { GruposPage } from './components/Gerenciador/GruposPage';
-import { EmpresasPage } from './components/Gerenciador/EmpresasPage';
-import { ComercialPage } from './components/Indicadores/ComercialPage';
-import { OperacionalPage } from './components/Indicadores/OperacionalPage';
-import { FinanceiroPage } from './components/Indicadores/FinanceiroPage';
-import { ProdutosPage } from './components/Indicadores/ProdutosPage'; // Added import
-import { UploadPage } from './components/Upload/UploadPage';
-import { HistorialPage } from './components/Upload/HistorialPage';
-import { usePermissions } from './hooks/usePermissions';
 import FloatingAIChat from './components/AI/FloatingAIChat';
+import { LoginPage } from './components/Auth/LoginPage';
+import { Dashboard } from './components/Dashboard/Dashboard';
+import { EmpresasPage } from './components/Gerenciador/EmpresasPage';
+import { GruposPage } from './components/Gerenciador/GruposPage';
+import { UsuariosPage } from './components/Gerenciador/UsuariosPage';
+import { ComercialPage } from './components/Indicadores/ComercialPage';
+import { ComprasPage } from './components/Indicadores/ComprasPage';
+import { FinanceiroPage } from './components/Indicadores/FinanceiroPage';
+import { OperacionalPage } from './components/Indicadores/OperacionalPage';
+import { ProdutosPage } from './components/Indicadores/ProdutosPage';
+import { Header } from './components/Layout/Header';
+import { Sidebar } from './components/Layout/Sidebar';
+import { HistorialPage } from './components/Upload/HistorialPage';
+import { UploadPage } from './components/Upload/UploadPage';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { GlobalFiltersProvider } from './contexts/GlobalFiltersContext';
+import { PermissionsProvider } from './contexts/PermissionsContext';
+import { usePermissions } from './hooks/usePermissions';
 
 const menuTitles: Record<string, string> = {
   dashboard: 'Dashboard',
   comercial: 'Indicadores de Faturamento',
   operacional: 'Indicadores de Ordem de Serviço',
-  produtos: 'Indicadores de Produtos', // Added title
+  compras: 'Indicadores de Compras',
+  produtos: 'Indicadores de Produtos',
   financeiro: 'Indicadores Financeiros',
   upload: 'Upload de Arquivos',
   historial: 'Histórico de Uploads',
@@ -44,7 +46,7 @@ const AppContent: React.FC = () => {
   }, [canViewMenu]);
 
   const getDefaultMenu = React.useCallback((): string => {
-    const allMenus = ['dashboard', 'comercial', 'operacional', 'produtos', 'financeiro', 'upload', 'historial', 'usuarios', 'grupos', 'empresas']; // Added produtos
+    const allMenus = ['dashboard', 'comercial', 'operacional', 'compras', 'produtos', 'financeiro', 'upload', 'historial', 'usuarios', 'grupos', 'empresas'];
     for (const menu of allMenus) {
       if (hasPermission(menu)) {
         return menu;
@@ -99,6 +101,8 @@ const AppContent: React.FC = () => {
         return <ComercialPage />;
       case 'operacional':
         return <OperacionalPage />;
+      case 'compras':
+        return <ComprasPage />;
       case 'produtos':
         return <ProdutosPage />; // Added case
       case 'financeiro':

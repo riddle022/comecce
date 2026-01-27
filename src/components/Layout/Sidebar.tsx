@@ -1,20 +1,21 @@
-import React, { useState } from 'react';
 import {
-  LayoutDashboard,
-  TrendingUp,
-  Package,
-  DollarSign,
-  Upload,
-  History,
-  Users,
-  Shield,
   Building2,
-  LogOut,
-  Settings,
   ChevronDown,
   ChevronRight,
-  ShoppingBag // Added import
+  DollarSign,
+  History,
+  LayoutDashboard,
+  LogOut,
+  Package,
+  Settings,
+  Shield,
+  ShoppingBag,
+  ShoppingCart,
+  TrendingUp,
+  Upload,
+  Users
 } from 'lucide-react';
+import React, { useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { usePermissions } from '../../hooks/usePermissions';
 
@@ -28,7 +29,8 @@ const menuItems = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { id: 'comercial', label: 'Faturamento', icon: TrendingUp },
   { id: 'operacional', label: 'Ordem de Serviço', icon: Package },
-  { id: 'produtos', label: 'Produtos', icon: ShoppingBag }, // Added item
+  { id: 'compras', label: 'Compras', icon: ShoppingCart },
+  { id: 'produtos', label: 'Produtos', icon: ShoppingBag },
   { id: 'financeiro', label: 'Financeiro', icon: DollarSign },
   { id: 'upload', label: 'Upload', icon: Upload },
   { id: 'historial', label: 'Histórico', icon: History },
