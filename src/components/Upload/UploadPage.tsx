@@ -1,7 +1,8 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { Upload, FileSpreadsheet, CheckCircle, XCircle, Building2, AlertTriangle, ChevronDown, ChevronRight, Copy, Trash2 } from 'lucide-react';
+import { AlertTriangle, Building2, CheckCircle, ChevronDown, ChevronRight, Copy, FileSpreadsheet, Trash2, Upload, XCircle } from 'lucide-react';
+import React, { useEffect, useRef, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import { Empresa } from '../../types/database';
+import { enrichOrdemServicoWithProdutos, enrichVendasWithProdutos, ErrorRecord, parseOrdemServicoExcel, parseProdutosExcel, parseVendasExcel } from '../../utils/excelParsers';
 import { CompanyListbox } from '../Dashboard/CompanyListbox';
 
 type FileType = 'vendas' | 'produtos' | 'ordem_servico';
@@ -11,13 +12,7 @@ interface FileWithType {
   type: FileType | null;
 }
 
-interface ErrorRecord {
-  arquivo: string;
-  linha?: number;
-  coluna?: string;
-  valor?: any;
-  descricao: string;
-}
+
 
 interface ProcessingResult {
   status: 'sucesso' | 'falha';
@@ -233,41 +228,124 @@ export const UploadPage: React.FC = () => {
       const empresa = empresas.find(e => e.id_empresa === empresaSelecionada[0]);
       if (!empresa) throw new Error('Empresa não encontrada');
 
-      const functionName = uploadType === 'operacional'
-        ? 'process-excel-import-bundle'
-        : 'process-contas-pagar-import';
-
-      const body = new FormData();
-      body.append('ds_empresa', empresa.ds_empresa);
-
+      // ---------------------------------------------------------
+      // OPERACIONAL: Processamento Local (Frontend) + RPC Atômica
+      // ---------------------------------------------------------
       if (uploadType === 'operacional') {
-        files.forEach(({ file, type }) => {
-          if (type) body.append(type, file);
-        });
-      } else {
-        body.append('contas', files[0].file);
-      }
+        const vendasFile = files.find(f => f.type === 'vendas')?.file;
+        const produtosFile = files.find(f => f.type === 'produtos')?.file;
+        const osFile = files.find(f => f.type === 'ordem_servico')?.file;
 
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) throw new Error('Sessão não encontrada');
+        if (!vendasFile || !produtosFile || !osFile) throw new Error('Arquivos faltando');
 
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/${functionName}`,
-        {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${session.access_token}`,
-          },
-          body
+        // 1. Parse (Frontend RAM)
+        console.log('Iniciando parsing local...');
+        const [vendasRes, produtosRes, osRes] = await Promise.all([
+          parseVendasExcel(vendasFile, empresa.ds_empresa),
+          parseProdutosExcel(produtosFile),
+          parseOrdemServicoExcel(osFile)
+        ]);
+
+        const allErros = [...vendasRes.erros, ...produtosRes.erros, ...osRes.erros];
+        if (allErros.length > 0) {
+          setResult({
+            status: 'falha',
+            total_vendas: 0,
+            total_produtos: 0,
+            total_ordens_servico: 0,
+            erros: allErros
+          });
+          setUploading(false);
+          return;
         }
-      );
 
-      const resultData: ProcessingResult = await response.json();
-      setResult(resultData);
+        // 2. Enrich
+        console.log('Enriquecendo dados...');
+        const { vendasEnriquecidas } = enrichVendasWithProdutos(vendasRes.vendas, produtosRes.produtos);
+        const { ordensEnriquecidas } = enrichOrdemServicoWithProdutos(osRes.ordensServico, produtosRes.produtos);
 
-      if (resultData.status === 'sucesso') {
+        const uniqueVendasCount = new Set(vendasRes.vendas.map(v => v.numero_venda)).size;
+        const uniqueOSCount = new Set(osRes.ordensServico.map(os => os.numero_os)).size;
+        const uniqueProdutosParsed = new Set(produtosRes.produtos.map(p => p.item_ds_referencia)).size;
+
+        // 3. Persist (Direct RPC)
+        console.log('Enviando para o banco de dados (RPC)...');
+        const payload = {
+          p_id_empresa: empresa.id_empresa,
+          p_file_names: {
+            vendas: vendasFile.name,
+            produtos: produtosFile.name,
+            os: osFile.name
+          },
+          p_vendas: vendasEnriquecidas,
+          p_ordens: ordensEnriquecidas,
+          p_upload_stats: {
+            total_vendas: uniqueVendasCount,
+            total_os: uniqueOSCount
+          }
+        };
+
+        const { data, error } = await supabase.rpc('process_operacional_import_atomic', payload);
+
+        if (error) throw error;
+        if (data?.status === 'falha') throw new Error(data.message);
+
+        setResult({
+          status: 'sucesso',
+          total_vendas: uniqueVendasCount,
+          total_produtos: uniqueProdutosParsed,
+          total_ordens_servico: uniqueOSCount,
+          erros: [],
+          message: 'Importação concluída com sucesso (Frontend Parsing)'
+        });
         setFiles([]);
+
+      } else {
+        // ---------------------------------------------------------
+        // FINANCEIRO: Mantém fluxo antigo (Edge Function)
+        // ---------------------------------------------------------
+        const body = new FormData();
+        body.append('ds_empresa', empresa.ds_empresa);
+        body.append('contas', files[0].file);
+
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) throw new Error('Sessão não encontrada');
+
+        const response = await fetch(
+          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/process-contas-pagar-import`,
+          {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${session.access_token}`,
+            },
+            body
+          }
+        );
+
+        if (!response.ok) {
+          let errorMessage = `Erro no servidor: ${response.status}`;
+          try {
+            const errorData = await response.json();
+            if (errorData && errorData.message) errorMessage = errorData.message;
+            if (errorData && errorData.erros) {
+              setResult({
+                status: 'falha',
+                total_vendas: 0,
+                total_produtos: 0,
+                total_ordens_servico: 0,
+                erros: errorData.erros
+              });
+              return;
+            }
+          } catch (e) { }
+          throw new Error(errorMessage);
+        }
+
+        const resultData: ProcessingResult = await response.json();
+        setResult(resultData);
+        if (resultData.status === 'sucesso') setFiles([]);
       }
+
     } catch (error) {
       console.error('Erro ao processar upload:', error);
       setResult({
@@ -305,7 +383,7 @@ export const UploadPage: React.FC = () => {
     navigator.clipboard.writeText(errorsText);
   };
 
-  const groupedErrors = result?.erros.reduce((acc, error) => {
+  const groupedErrors = (result?.erros || []).reduce((acc, error) => {
     const key = error.arquivo || 'Geral';
     if (!acc[key]) acc[key] = [];
     acc[key].push(error);
