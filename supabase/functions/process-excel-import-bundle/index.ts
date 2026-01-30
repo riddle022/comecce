@@ -413,7 +413,7 @@ async function getEmpresaIdByName(supabase: any, ds_empresa: string): Promise<st
   return empresa?.id_empresa || null;
 }
 
-async function persistData(
+async function persistDataAtomic(
   supabase: any,
   id_empresa: string,
   vendas: VendaEnriquecida[],
@@ -424,54 +424,35 @@ async function persistData(
   const uniqueVendasCount = new Set(vendas.map(v => v.numero_venda)).size;
   const uniqueOSCount = new Set(ordensServico.map(os => os.numero_os)).size;
 
-  // 4. Cleanup previous 'operacional' uploads for this company to avoid list duplication
-  // This will also cascade delete rows in tbl_vendas and tbl_ordem_servico
-  await supabase
-    .from('tbl_historico_uploads')
-    .delete()
-    .eq('id_empresa', id_empresa)
-    .eq('tipo_importacao', 'operacional');
-
-  const { data: uploadData, error: uploadError } = await supabase
-    .from('tbl_historico_uploads')
-    .insert({
-      id_empresa,
-      arquivo_vendas: fileNames.vendas,
-      arquivo_produtos: fileNames.produtos,
-      arquivo_os: fileNames.os,
+  // Prepare payload for RPC
+  const payload = {
+    p_id_empresa: id_empresa,
+    p_file_names: fileNames,
+    p_vendas: vendas,
+    p_ordens: ordensServico,
+    p_upload_stats: {
       total_vendas: uniqueVendasCount,
-      total_os: uniqueOSCount,
-      tipo_importacao: 'operacional',
-      status: 'sucesso'
-    })
-    .select('id_upload')
-    .single();
+      total_os: uniqueOSCount
+    }
+  };
 
-  if (uploadError) throw new Error(`Erro ao criar histórico: ${uploadError.message}`);
-  const id_upload = uploadData.id_upload;
+  // Call the Atomic RPC
+  const { data, error } = await supabase.rpc('process_operacional_import_atomic', payload);
 
-  const vendasInsert = vendas.map(v => ({ id_empresa, id_upload, ...v }));
-  const ordensInsert = ordensServico.map(os => ({ id_empresa, id_upload, ...os }));
-
-  const CHUNK_SIZE = 1000;
-  const vendasIds = [...new Set(vendas.map(v => v.numero_venda))];
-  const osIds = [...new Set(ordensServico.map(os => os.numero_os))];
-
-  for (let i = 0; i < vendasIds.length; i += CHUNK_SIZE) {
-    await supabase.from('tbl_vendas').delete().eq('id_empresa', id_empresa).in('numero_venda', vendasIds.slice(i, i + CHUNK_SIZE));
-  }
-  for (let i = 0; i < osIds.length; i += CHUNK_SIZE) {
-    await supabase.from('tbl_ordem_servico').delete().eq('id_empresa', id_empresa).in('numero_os', osIds.slice(i, i + CHUNK_SIZE));
+  if (error) {
+    console.error('RPC Error:', error);
+    throw new Error(`Erro na gravação atômica: ${error.message}`);
   }
 
-  for (let i = 0; i < vendasInsert.length; i += CHUNK_SIZE) {
-    await supabase.from('tbl_vendas').insert(vendasInsert.slice(i, i + CHUNK_SIZE));
-  }
-  for (let i = 0; i < ordensInsert.length; i += CHUNK_SIZE) {
-    await supabase.from('tbl_ordem_servico').insert(ordensInsert.slice(i, i + CHUNK_SIZE));
+  if (data?.status === 'falha') {
+    throw new Error(`Erro processado pelo banco: ${data.message}`);
   }
 
-  return { vendas_inseridas: uniqueVendasCount, os_inseridas: uniqueOSCount, id_upload };
+  return {
+    vendas_inseridas: uniqueVendasCount,
+    os_inseridas: uniqueOSCount,
+    id_upload: data.id_upload
+  };
 }
 
 // =============== MAIN HANDLER ===============
@@ -500,6 +481,7 @@ Deno.serve(async (req: Request) => {
     const id_empresa = await getEmpresaIdByName(supabase, ds_empresa);
     if (!id_empresa) return new Response(JSON.stringify({ status: 'falha', erros: [{ arquivo: '', descricao: 'Empresa não encontrada' }] }), { status: 404, headers: corsHeaders });
 
+    // Parallel parsing for speed (Wait, Vendas needs empresa check inside parsing, so generic parallel might be tricky, but let's keep sequential for safety on validation)
     const { vendas, erros: errosVendas } = parseVendasExcel(await vendasFile.arrayBuffer(), ds_empresa);
     const { produtos, erros: errosProd } = parseProdutosExcel(await productosFile.arrayBuffer());
     const { ordensServico, erros: errosOS } = parseOrdemServicoExcel(await osFile.arrayBuffer());
@@ -513,7 +495,8 @@ Deno.serve(async (req: Request) => {
 
     const uniqueProdutosParsed = new Set(produtos.map(p => p.item_ds_referencia)).size;
 
-    const { vendas_inseridas, os_inseridas } = await persistData(supabase, id_empresa, vendasEnriquecidas, ordensEnriquecidas, {
+    // Use the new Atomic Persist function
+    const { vendas_inseridas, os_inseridas } = await persistDataAtomic(supabase, id_empresa, vendasEnriquecidas, ordensEnriquecidas, {
       vendas: vendasFile.name,
       produtos: productosFile.name,
       os: osFile.name
@@ -525,10 +508,11 @@ Deno.serve(async (req: Request) => {
       total_produtos: uniqueProdutosParsed,
       total_ordens_servico: os_inseridas,
       erros: [],
-      message: 'Importação concluída com sucesso'
+      message: 'Importação concluída com sucesso (Otimizada)'
     }), { status: 200, headers: corsHeaders });
 
   } catch (error) {
     return new Response(JSON.stringify({ status: 'falha', erros: [{ arquivo: '', descricao: error.message }] }), { status: 500, headers: corsHeaders });
   }
 });
+
