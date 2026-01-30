@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { supabase } from '../lib/supabase';
 
 interface GlobalFilters {
   dataInicio: string;
@@ -42,12 +43,45 @@ export const GlobalFiltersProvider: React.FC<{ children: React.ReactNode }> = ({
   });
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(filters));
-  }, [filters]);
-
-  useEffect(() => {
     localStorage.setItem(MODE_STORAGE_KEY, JSON.stringify(isGlobalMode));
   }, [isGlobalMode]);
+
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_OUT') {
+        setFilters(getDefaultFilters());
+        setIsGlobalModeState(false);
+      } else if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION') {
+        const userId = session?.user?.id;
+        const storedFilters = localStorage.getItem(STORAGE_KEY);
+        if (storedFilters) {
+          try {
+            const parsed = JSON.parse(storedFilters);
+            if (parsed.userId && parsed.userId !== userId) {
+              setFilters(getDefaultFilters());
+              setIsGlobalModeState(false);
+            }
+          } catch (e) {
+            console.error('Erro ao validar filtros do cache:', e);
+          }
+        }
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    const saveFilters = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...filters, userId: user.id }));
+      } else {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(filters));
+      }
+    };
+    saveFilters();
+  }, [filters]);
 
   const setGlobalMode = useCallback((enabled: boolean) => {
     setIsGlobalModeState(enabled);

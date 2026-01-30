@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Users, Plus, Edit2, Trash2, Search, X, Building2, Filter, ChevronDown } from 'lucide-react';
+import { Users, Plus, Edit2, Trash2, Search, X, Building2, Filter, ChevronDown, Key } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { Perfil, Grupo, Empresa } from '../../types/database';
 import { ProtectedAction } from '../Common/ProtectedAction';
@@ -40,6 +40,16 @@ export const UsuariosPage: React.FC = () => {
   const [formError, setFormError] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [empresaSearch, setEmpresaSearch] = useState('');
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [currentUser, setCurrentUser] = useState<any>(null);
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      setCurrentUser(user);
+    });
+  }, []);
 
   useEffect(() => {
     loadInitialData();
@@ -200,6 +210,9 @@ export const UsuariosPage: React.FC = () => {
     setEditingUsuario(null);
     setFormError('');
     setEmpresaSearch('');
+    setIsChangingPassword(false);
+    setNewPassword('');
+    setConfirmPassword('');
     setFormData({ nome: '', email: '', password: '', telefone: '', grupo_id: '', ativo: true, empresa_ids: [] });
   };
 
@@ -212,6 +225,41 @@ export const UsuariosPage: React.FC = () => {
       let usuarioId: string;
 
       if (editingUsuario) {
+        // Se o usuário estiver mudando a senha
+        if (isChangingPassword) {
+          if (newPassword !== confirmPassword) {
+            throw new Error('As senhas não coincidem');
+          }
+          if (newPassword.length < 6) {
+            throw new Error('A senha debe ter pelo menos 6 caracteres');
+          }
+
+          if (currentUser?.id === editingUsuario.id) {
+            // Mudança de senha própria
+            const { error: updateAuthError } = await supabase.auth.updateUser({
+              password: newPassword
+            });
+            if (updateAuthError) throw updateAuthError;
+          } else {
+            // Mudança de senha por administrador
+            const { data: { session } } = await supabase.auth.getSession();
+            const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/admin-update-password`, {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${session?.access_token}`,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                userId: editingUsuario.id,
+                newPassword: newPassword
+              }),
+            });
+
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.error || 'Erro ao atualizar senha');
+          }
+        }
+
         const { error: perfilError } = await supabase
           .from('perfis')
           .update({
@@ -225,26 +273,26 @@ export const UsuariosPage: React.FC = () => {
         if (perfilError) throw perfilError;
         usuarioId = editingUsuario.id;
       } else {
-        const { data: authData, error: authError } = await supabase.auth.signUp({
-          email: formData.email,
-          password: formData.password,
+        const { data: { session } } = await supabase.auth.getSession();
+        const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/admin-create-user`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${session?.access_token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            email: formData.email,
+            password: formData.password,
+            nome: formData.nome,
+            telefone: formData.telefone,
+            grupo_id: formData.grupo_id || null,
+            ativo: formData.ativo,
+          }),
         });
 
-        if (authError) throw authError;
-
-        if (!authData.user) throw new Error('Erro ao criar usuário');
-
-        const { error: perfilError } = await supabase.from('perfis').insert({
-          id: authData.user.id,
-          nome: formData.nome,
-          email: formData.email,
-          telefone: formData.telefone,
-          grupo_id: formData.grupo_id || null,
-          ativo: formData.ativo,
-        });
-
-        if (perfilError) throw perfilError;
-        usuarioId = authData.user.id;
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Erro ao criar usuário');
+        usuarioId = data.userId;
       }
 
       const { error: deleteError } = await supabase
@@ -825,6 +873,70 @@ export const UsuariosPage: React.FC = () => {
                     Usuário ativo
                   </label>
                 </div>
+
+                {editingUsuario && (
+                  <div className="pt-4 border-t border-[#0F4C5C]/20">
+                    {!isChangingPassword ? (
+                      <button
+                        type="button"
+                        onClick={() => setIsChangingPassword(true)}
+                        className="flex items-center space-x-2 text-sm font-medium text-cyan-400 hover:text-cyan-300 transition-colors"
+                      >
+                        <Key className="w-4 h-4" />
+                        <span>Mudar Senha</span>
+                      </button>
+                    ) : (
+                      <div className="space-y-4">
+                        <div className="flex items-center justify-between">
+                          <h4 className="text-sm font-bold text-white uppercase tracking-wider flex items-center space-x-2">
+                            <Key className="w-4 h-4 text-cyan-400" />
+                            <span>Alterar Senha</span>
+                          </h4>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setIsChangingPassword(false);
+                              setNewPassword('');
+                              setConfirmPassword('');
+                            }}
+                            className="text-xs text-gray-400 hover:text-white"
+                          >
+                            Cancelar alteração
+                          </button>
+                        </div>
+
+                        <div className="grid grid-cols-1 gap-4">
+                          <div>
+                            <label className="block text-xs font-medium text-gray-400 mb-1.5">
+                              Nova Senha
+                            </label>
+                            <input
+                              type="password"
+                              value={newPassword}
+                              onChange={(e) => setNewPassword(e.target.value)}
+                              className="w-full px-4 py-2 bg-[#0F172A] border border-[#0F4C5C]/30 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#0F4C5C]"
+                              placeholder="Mínimo 6 caracteres"
+                              minLength={6}
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-gray-400 mb-1.5">
+                              Confirmar Nova Senha
+                            </label>
+                            <input
+                              type="password"
+                              value={confirmPassword}
+                              onChange={(e) => setConfirmPassword(e.target.value)}
+                              className="w-full px-4 py-2 bg-[#0F172A] border border-[#0F4C5C]/30 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#0F4C5C]"
+                              placeholder="Repita a nova senha"
+                              minLength={6}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
               </form>
             </div>
 

@@ -113,8 +113,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const signOut = async () => {
-    const { error } = await supabase.auth.signOut();
-    if (error) throw error;
+    try {
+      // Limpar filtros globais e cache de permissões antes de sair
+      localStorage.removeItem('global-filters');
+      localStorage.removeItem('global-filters-mode');
+      localStorage.removeItem('app_permissions_cache');
+
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
+    } catch (error) {
+      console.error('Erro ao sair:', error);
+      throw error;
+    }
   };
 
   return (
