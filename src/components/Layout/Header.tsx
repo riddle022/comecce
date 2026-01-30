@@ -1,5 +1,5 @@
 import React from 'react';
-import { Menu, Bell, Moon, User } from 'lucide-react';
+import { Menu, User } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 
 interface HeaderProps {
@@ -24,14 +24,6 @@ export const Header: React.FC<HeaderProps> = ({ title, onToggleSidebar }) => {
 
       <div className="flex items-center space-x-2">
 
-        <button className="relative p-1.5 text-gray-400 hover:text-white hover:bg-[#1E293B] rounded-lg transition-all">
-          <Bell className="w-4 h-4" />
-          <span className="absolute top-1 right-1 w-1.5 h-1.5 bg-[#9A031E] rounded-full"></span>
-        </button>
-
-        <button className="p-1.5 text-gray-400 hover:text-white hover:bg-[#1E293B] rounded-lg transition-all">
-          <Moon className="w-4 h-4" />
-        </button>
 
         <div className="flex items-center space-x-2 ml-3 pl-3 border-l border-[#0F4C5C]/30">
           <div className="w-8 h-8 bg-gradient-to-br from-[#0F4C5C] to-[#0F4C5C]/80 rounded-full flex items-center justify-center">
