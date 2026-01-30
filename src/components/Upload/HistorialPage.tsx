@@ -85,11 +85,17 @@ export const HistorialPage: React.FC = () => {
       }
 
       if (dataInicio) {
-        query = query.gte('data_upload', `${dataInicio}T00:00:00`);
+        const startDate = new Date(`${dataInicio}T00:00:00`);
+        if (!isNaN(startDate.getTime())) {
+          query = query.gte('data_upload', startDate.toISOString());
+        }
       }
 
       if (dataFim) {
-        query = query.lte('data_upload', `${dataFim}T23:59:59`);
+        const endDate = new Date(`${dataFim}T23:59:59.999`);
+        if (!isNaN(endDate.getTime())) {
+          query = query.lte('data_upload', endDate.toISOString());
+        }
       }
 
       const from = paginaAtual * ITENS_POR_PAGINA;
