@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { History, Trash2, Building2, FileSpreadsheet, AlertCircle, CheckCircle } from 'lucide-react';
+import { History, Trash2, Building2, FileSpreadsheet, AlertCircle, CheckCircle, ChevronLeft, ChevronRight } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { Empresa, HistoricoUpload } from '../../types/database';
 import { CompanyListbox } from '../Dashboard/CompanyListbox';
@@ -14,18 +14,29 @@ export const HistorialPage: React.FC = () => {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [filtroTipo, setFiltroTipo] = useState<string>('todos');
+  const [dataInicio, setDataInicio] = useState<string>('');
+  const [dataFim, setDataFim] = useState<string>('');
+  const [paginaAtual, setPaginaAtual] = useState(0);
+  const [totalRegistros, setTotalRegistros] = useState(0);
+  const ITENS_POR_PAGINA = 5;
 
   useEffect(() => {
     loadEmpresas();
   }, []);
 
   useEffect(() => {
+    setPaginaAtual(0);
+  }, [empresasSelecionadas, filtroTipo, dataInicio, dataFim]);
+
+  useEffect(() => {
     if (empresasSelecionadas.length > 0) {
       loadHistorico();
     } else {
       setHistorico([]);
+      setTotalRegistros(0);
     }
-  }, [empresasSelecionadas]);
+  }, [empresasSelecionadas, filtroTipo, dataInicio, dataFim, paginaAtual]);
 
   const loadEmpresas = async () => {
     try {
@@ -51,7 +62,7 @@ export const HistorialPage: React.FC = () => {
       setLoadingHistorico(true);
       setErrorMessage(null);
 
-      const { data, error } = await supabase
+      let query = supabase
         .from('tbl_historico_uploads')
         .select(`
           *,
@@ -60,12 +71,37 @@ export const HistorialPage: React.FC = () => {
             ds_empresa,
             cnpj
           )
-        `)
-        .in('id_empresa', empresasSelecionadas)
-        .order('data_upload', { ascending: false });
+        `, { count: 'exact' })
+        .in('id_empresa', empresasSelecionadas);
+
+      if (filtroTipo !== 'todos') {
+        if (filtroTipo === 'operacional') {
+          query = query.or('tipo_importacao.is.null,tipo_importacao.ilike.operacional');
+        } else if (filtroTipo === 'compras') {
+          query = query.or('tipo_importacao.ilike.compras,tipo_importacao.ilike.financeiro');
+        } else {
+          query = query.ilike('tipo_importacao', filtroTipo);
+        }
+      }
+
+      if (dataInicio) {
+        query = query.gte('data_upload', `${dataInicio}T00:00:00`);
+      }
+
+      if (dataFim) {
+        query = query.lte('data_upload', `${dataFim}T23:59:59`);
+      }
+
+      const from = paginaAtual * ITENS_POR_PAGINA;
+      const to = from + ITENS_POR_PAGINA - 1;
+
+      const { data, error, count } = await query
+        .order('data_upload', { ascending: false })
+        .range(from, to);
 
       if (error) throw error;
       setHistorico(data || []);
+      setTotalRegistros(count || 0);
     } catch (error) {
       console.error('Error loading historico:', error);
       setErrorMessage('Erro ao carregar histórico de uploads');
@@ -128,34 +164,80 @@ export const HistorialPage: React.FC = () => {
       )}
 
       <div className="relative z-20 bg-slate-900/40 backdrop-blur-md border border-white/5 rounded-xl px-4 py-2.5 mb-6 shadow-sm">
-        <div className="flex items-center space-x-4">
-          <div className="flex items-center space-x-2">
-            <Building2 className="w-3.5 h-3.5 text-slate-400" />
-            <span className="text-[10px] uppercase tracking-wider font-semibold text-slate-500 whitespace-nowrap">
-              Empresas
-            </span>
+        <div className="flex flex-wrap items-center gap-4 lg:gap-8">
+          {/* Empresa Filter */}
+          <div className="flex items-center space-x-4 min-w-[200px] flex-1 lg:flex-none">
+            <div className="flex items-center space-x-2">
+              <Building2 className="w-3.5 h-3.5 text-slate-400" />
+              <span className="text-[10px] uppercase tracking-wider font-semibold text-slate-500 whitespace-nowrap">
+                Empresas
+              </span>
+            </div>
+            <div className="flex-1 w-full lg:w-48">
+              {loadingEmpresas ? (
+                <div className="flex items-center h-8">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-indigo-500"></div>
+                </div>
+              ) : (
+                <CompanyListbox
+                  empresas={empresas}
+                  empresasSelecionadas={empresasSelecionadas}
+                  onSelectionChange={setEmpresasSelecionadas}
+                  mode="multiple"
+                />
+              )}
+            </div>
           </div>
 
-          <div className="h-6 w-px bg-slate-800" />
+          <div className="hidden lg:block h-6 w-px bg-slate-800" />
 
-          <div className="flex-1 max-w-md">
-            {loadingEmpresas ? (
-              <div className="flex items-center h-8">
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-indigo-500"></div>
-              </div>
-            ) : (
-              <CompanyListbox
-                empresas={empresas}
-                empresasSelecionadas={empresasSelecionadas}
-                onSelectionChange={setEmpresasSelecionadas}
-                mode="multiple"
+          {/* Tipo Filter */}
+          <div className="flex items-center space-x-3">
+            <span className="text-[10px] uppercase tracking-wider font-semibold text-slate-500 whitespace-nowrap">
+              Tipo
+            </span>
+            <select
+              value={filtroTipo}
+              onChange={(e) => setFiltroTipo(e.target.value)}
+              className="h-8 px-2 text-xs bg-slate-800/50 border border-slate-700/50 rounded-md text-white focus:outline-none focus:ring-1 focus:ring-indigo-500/50 transition-all cursor-pointer hover:bg-slate-800"
+            >
+              <option value="todos">Todos</option>
+              <option value="operacional">Operacional</option>
+              <option value="compras">Contas a Pagar</option>
+            </select>
+          </div>
+
+          <div className="hidden lg:block h-6 w-px bg-slate-800" />
+
+          {/* Date Filter */}
+          <div className="flex items-center space-x-3">
+            <div className="flex items-center space-x-2">
+              <span className="text-[10px] uppercase tracking-wider font-semibold text-slate-500 whitespace-nowrap">
+                De
+              </span>
+              <input
+                type="date"
+                value={dataInicio}
+                onChange={(e) => setDataInicio(e.target.value)}
+                className="h-8 px-2 text-xs bg-slate-800/50 border border-slate-700/50 rounded-md text-white focus:outline-none focus:ring-1 focus:ring-indigo-500/50 transition-all cursor-pointer hover:bg-slate-800"
               />
-            )}
+            </div>
+            <div className="flex items-center space-x-2">
+              <span className="text-[10px] uppercase tracking-wider font-semibold text-slate-500 whitespace-nowrap">
+                Até
+              </span>
+              <input
+                type="date"
+                value={dataFim}
+                onChange={(e) => setDataFim(e.target.value)}
+                className="h-8 px-2 text-xs bg-slate-800/50 border border-slate-700/50 rounded-md text-white focus:outline-none focus:ring-1 focus:ring-indigo-500/50 transition-all cursor-pointer hover:bg-slate-800"
+              />
+            </div>
           </div>
 
           <div className="flex-1" />
 
-          <div className="flex items-center space-x-2 text-[10px] font-bold text-slate-600 uppercase tracking-widest px-3 py-1 bg-white/[0.02] border border-white/5 rounded-lg">
+          <div className="hidden sm:flex items-center space-x-2 text-[10px] font-bold text-slate-600 uppercase tracking-widest px-3 py-1 bg-white/[0.02] border border-white/5 rounded-lg">
             <div className="w-1 h-1 rounded-full bg-indigo-500" />
             <span>Filtro de Histórico</span>
           </div>
@@ -232,13 +314,11 @@ export const HistorialPage: React.FC = () => {
                       </div>
                     </td>
                     <td className="px-4 py-4">
-                      <span className={`text-[9px] font-bold px-2 py-0.5 rounded border uppercase tracking-widest ${item.tipo_importacao?.toLowerCase() === 'compras'
+                      <span className={`text-[9px] font-bold px-2 py-0.5 rounded border uppercase tracking-widest ${['compras', 'financeiro'].includes(item.tipo_importacao?.toLowerCase() || '')
                         ? 'bg-rose-500/10 text-rose-400 border-rose-500/20'
-                        : item.tipo_importacao?.toLowerCase() === 'financeiro'
-                          ? 'bg-sky-500/10 text-sky-400 border-sky-500/20'
-                          : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                        : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
                         }`}>
-                        {item.tipo_importacao || 'Operacional'}
+                        {['compras', 'financeiro'].includes(item.tipo_importacao?.toLowerCase() || '') ? 'Contas a Pagar' : (item.tipo_importacao || 'Operacional')}
                       </span>
                     </td>
                     <td className="px-6 py-4">
@@ -349,6 +429,37 @@ export const HistorialPage: React.FC = () => {
                 ))}
               </tbody>
             </table>
+          </div>
+
+          {/* Pagination Controls */}
+          <div className="bg-slate-900/50 border-t border-white/5 px-6 py-4 flex items-center justify-between">
+            <div className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">
+              Mostrando {historico.length > 0 ? (paginaAtual * ITENS_POR_PAGINA) + 1 : 0} - {(paginaAtual * ITENS_POR_PAGINA) + historico.length} de {totalRegistros} registros
+            </div>
+
+            <div className="flex items-center space-x-2">
+              <button
+                onClick={() => setPaginaAtual(prev => Math.max(0, prev - 1))}
+                disabled={paginaAtual === 0 || loadingHistorico}
+                className="p-2 bg-white/5 text-slate-400 text-[10px] font-bold uppercase tracking-widest rounded-lg hover:bg-white/10 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2 border border-white/5"
+              >
+                <ChevronLeft className="w-3.5 h-3.5" />
+                <span>Anterior</span>
+              </button>
+
+              <div className="px-4 text-[10px] text-white font-bold uppercase tracking-widest">
+                Página {paginaAtual + 1} de {Math.max(1, Math.ceil(totalRegistros / ITENS_POR_PAGINA))}
+              </div>
+
+              <button
+                onClick={() => setPaginaAtual(prev => prev + 1)}
+                disabled={paginaAtual >= Math.ceil(totalRegistros / ITENS_POR_PAGINA) - 1 || loadingHistorico}
+                className="p-2 bg-white/5 text-slate-400 text-[10px] font-bold uppercase tracking-widest rounded-lg hover:bg-white/10 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2 border border-white/5"
+              >
+                <span>Próximo</span>
+                <ChevronRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
           </div>
         </div>
       )}
