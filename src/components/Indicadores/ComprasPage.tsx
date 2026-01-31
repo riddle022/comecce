@@ -4,7 +4,6 @@ import {
     Bar,
     BarChart,
     CartesianGrid,
-    Cell,
     LabelList,
     ResponsiveContainer,
     Tooltip,
@@ -55,9 +54,9 @@ export const ComprasPage: React.FC = () => {
         return dateString;
     };
 
-    // --- Process Data for "Specific" Dashboard (Revenda + Laboratório) ---
+    // --- Process Data for "Custos Diretos" (Revenda + Laboratório) ---
     const specificDashboardData = useMemo(() => {
-        if (!data) return { chartData: [], kpis: { total: 0 } };
+        if (!data) return { chartData: [], supplierData: [], kpis: { total: 0 } };
 
         // Relaxed matching strings (lowercase, partial)
         const MATCH_REVENDA = 'compra de mercadorias para revenda';
@@ -70,103 +69,54 @@ export const ComprasPage: React.FC = () => {
 
         // Group by Month (data_pagamento) -> YYYY-MM
         const grouped: Record<string, { date: string, revenda: number, laboratorio: number }> = {};
+
+        // Group by Supplier
+        const supplierMap: Record<string, { name: string, value: number, revenda: number, laboratorio: number, count: number }> = {};
+
         let total = 0;
 
         filtered.forEach(item => {
+            const val = Number(item.valor_pago) || 0;
+            total += val;
+
+            // 1. Time Grouping
             const dateKey = item.data_pagamento.substring(0, 7);
             if (!grouped[dateKey]) {
                 grouped[dateKey] = { date: dateKey, revenda: 0, laboratorio: 0 };
             }
-            const val = Number(item.valor_pago) || 0;
+
+            // 2. Supplier Grouping
+            // fallback to 'NÃO IDENTIFICADO' if missing
+            const rawName = item.fornecedor || 'NÃO IDENTIFICADO';
+            const supplierName = rawName.toUpperCase().trim();
+
+            if (!supplierMap[supplierName]) {
+                supplierMap[supplierName] = { name: supplierName, value: 0, revenda: 0, laboratorio: 0, count: 0 };
+            }
+
+            supplierMap[supplierName].value += val;
+            supplierMap[supplierName].count += 1;
 
             if (isRevenda(item.categoria)) {
                 grouped[dateKey].revenda += val;
+                supplierMap[supplierName].revenda += val;
             } else if (isLab(item.categoria)) {
                 grouped[dateKey].laboratorio += val;
+                supplierMap[supplierName].laboratorio += val;
             }
-
-            total += val;
         });
 
         const chartData = Object.values(grouped).sort((a, b) => a.date.localeCompare(b.date));
-        return { chartData, kpis: { total } };
+
+        // Sort suppliers by Total Value Descending
+        const supplierData = Object.values(supplierMap).sort((a, b) => b.value - a.value);
+
+        return { chartData, supplierData, kpis: { total } };
     }, [data]);
 
-    // --- Process Data for "General" Dashboard (All OTHER Categories) ---
-    const generalDashboardData = useMemo(() => {
-        if (!data) return { chartData: [], categories: [], topCategories: [], fullSummary: [], kpis: { total: 0 } };
 
-        const MATCH_REVENDA = 'compra de mercadorias para revenda';
-        const MATCH_LAB = 'compra laborat';
 
-        const isRevenda = (cat: string) => (cat || '').toLowerCase().includes(MATCH_REVENDA);
-        const isLab = (cat: string) => (cat || '').toLowerCase().includes(MATCH_LAB);
 
-        // Filter OUT the specific categories
-        const filtered = data.filter(item => !isRevenda(item.categoria) && !isLab(item.categoria));
-
-        let total = 0;
-        const categoryTotals: Record<string, number> = {};
-
-        // 1. Calculate totals per category to find Top X
-        filtered.forEach(item => {
-            const cat = item.categoria || 'Sem Categoria';
-            const val = Number(item.valor_pago) || 0;
-            categoryTotals[cat] = (categoryTotals[cat] || 0) + val;
-            total += val;
-        });
-
-        // 2. Full Summary for Table (DRE Style)
-        const sortedCats = Object.entries(categoryTotals)
-            .sort((a, b) => b[1] - a[1]);
-
-        const fullSummary = sortedCats.map(([name, value]) => ({
-            name,
-            value,
-            percent: total > 0 ? (value / total) * 100 : 0
-        }));
-
-        // 3. Identify Top 9 Categories for Charts
-        const top9 = new Set(sortedCats.slice(0, 9).map(c => c[0]));
-        const topCategoriesList = sortedCats.slice(0, 10).map(([name, value]) => ({ name, value })); // Top 10 for Ranking Chart
-
-        // 4. Build Monthly Data grouping small cats into "Outros"
-        const grouped: Record<string, Record<string, number>> = {};
-
-        filtered.forEach(item => {
-            const dateKey = item.data_pagamento.substring(0, 7);
-            if (!grouped[dateKey]) {
-                grouped[dateKey] = { Outros: 0 };
-                top9.forEach(t => grouped[dateKey][t] = 0);
-            }
-
-            const rawCat = item.categoria || 'Sem Categoria';
-            const val = Number(item.valor_pago) || 0;
-            const finalCat = top9.has(rawCat) ? rawCat : 'Outros';
-
-            grouped[dateKey][finalCat] = (grouped[dateKey][finalCat] || 0) + val;
-        });
-
-        const chartData = Object.entries(grouped).map(([dateKey, cats]) => {
-            return {
-                date: dateKey,
-                ...cats
-            };
-        }).sort((a, b) => a.date.localeCompare(b.date));
-
-        return {
-            chartData,
-            categories: [...Array.from(top9), 'Outros'],
-            topCategories: topCategoriesList,
-            fullSummary,
-            kpis: { total }
-        };
-    }, [data]);
-
-    const COLORS = [
-        '#10B981', '#3B82F6', '#F59E0B', '#EF4444', '#8B5CF6',
-        '#EC4899', '#06B6D4', '#14B8A6', '#6366F1', '#9CA3AF'
-    ];
 
     if (loading && !data) {
         return (
@@ -338,153 +288,76 @@ export const ComprasPage: React.FC = () => {
                         </div>
                     </div>
                 </div>
-            </section>
 
-            {/* DASHBOARD 2: GENERAL CATEGORIES (OTHER EXPENSES) */}
-            <section className="space-y-4 pt-8">
-                <div className="flex items-center space-x-2 border-b border-slate-700 pb-2">
-                    <Activity className="text-orange-400" size={20} />
-                    <h3 className="text-xl font-semibold text-white">Despesas Gerais (Top Consumo)</h3>
-                </div>
-
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                    {/* Ranking Chart (Horizontal Bars) - REPLACES PIE CHART for better readability */}
-                    <div className="bg-[#1E293B] border border-slate-700 rounded-xl p-6 shadow-xl flex flex-col relative z-20">
-                        <h4 className="text-sm font-semibold text-slate-300 mb-4">Ranking: Onde gastamos mais?</h4>
-                        <div className="flex-1 min-h-[500px]">
-                            <ResponsiveContainer width="100%" height="100%">
-                                <BarChart
-                                    layout="vertical"
-                                    data={generalDashboardData.topCategories}
-                                    margin={{ top: 0, right: 60, left: 20, bottom: 0 }}
-                                >
-                                    <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#334155" />
-                                    <XAxis type="number" hide />
-                                    <YAxis
-                                        type="category"
-                                        dataKey="name"
-                                        width={100}
-                                        tick={{ fontSize: 10, fill: '#E2E8F0', fontWeight: 500 }}
-                                        tickFormatter={(val) => val.length > 15 ? `${val.substring(0, 15)}...` : val}
-                                    />
-                                    <Tooltip
-                                        cursor={{ fill: '#334155', opacity: 0.1 }}
-                                        contentStyle={{ backgroundColor: '#0F172A', borderColor: '#334155', borderRadius: '8px', color: '#fff' }}
-                                        wrapperStyle={{ zIndex: 1000 }}
-                                        formatter={(value?: number) => [formatCurrency(value || 0), 'Valor']}
-                                    />
-                                    <Bar dataKey="value" name="Valor" radius={[0, 4, 4, 0]} barSize={24}>
-                                        {generalDashboardData.topCategories.map((_, index) => (
-                                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                                        ))}
-                                        {/* Added LabelList for visibility without hover */}
-                                        <LabelList
-                                            dataKey="value"
-                                            position="right"
-                                            fill="#FFFF"
-                                            fontSize={10}
-                                            formatter={(value: any) => formatCurrency(Number(value))}
-                                        />
-                                    </Bar>
-                                </BarChart>
-                            </ResponsiveContainer>
-                        </div>
-                    </div>
-
-                    {/* Stacked Bar Chart (Evolution) - Simplified Data */}
-                    <div className="lg:col-span-2 flex flex-col space-y-6">
-                        <div className="bg-[#1E293B] border border-slate-700 rounded-xl p-6 shadow-xl relative min-h-[350px]">
-                            <div className="flex items-center justify-between mb-6">
-                                <h4 className="text-sm font-semibold text-slate-300">Evolução Mensal das Despesas</h4>
-                                <span className="text-xs text-slate-500 uppercase tracking-wide">Agrupado por Top 9 + Outros</span>
-                            </div>
-
-                            <div className="h-[280px] w-full">
-                                <ResponsiveContainer width="100%" height="100%">
-                                    <BarChart
-                                        data={generalDashboardData.chartData}
-                                        margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
-                                    >
-                                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#334155" />
-                                        <XAxis
-                                            dataKey="date"
-                                            stroke="#94A3B8"
-                                            tickFormatter={formatDate}
-                                            tick={{ fontSize: 12 }}
-                                            axisLine={false}
-                                            tickLine={false}
-                                        />
-                                        <YAxis
-                                            stroke="#94A3B8"
-                                            tickFormatter={(val) => `R$${val / 1000}k`}
-                                            tick={{ fontSize: 12 }}
-                                            axisLine={false}
-                                            tickLine={false}
-                                        />
-                                        <Tooltip
-                                            contentStyle={{ backgroundColor: '#0F172A', borderColor: '#334155', borderRadius: '8px' }}
-                                            cursor={{ fill: '#334155', opacity: 0.2 }}
-                                            formatter={(value?: number, name?: string) => [formatCurrency(value || 0), name || '']}
-                                            labelFormatter={formatDate}
-                                            itemSorter={(item) => (item.value as number) * -1} // Sort tooltip high to low
-                                        />
-                                        {(generalDashboardData.categories || []).map((cat, index) => (
-                                            <Bar
-                                                key={cat}
-                                                dataKey={cat}
-                                                stackId="a"
-                                                fill={cat === 'Outros' ? '#475569' : COLORS[index % COLORS.length] || '#9CA3AF'}
-                                                radius={[0, 0, 0, 0]}
-                                            />
-                                        ))}
-                                    </BarChart>
-                                </ResponsiveContainer>
-                            </div>
+                {/* SUPPLIER ANALYSIS SECTION */}
+                <div className="pt-6">
+                    <div className="bg-[#1E293B] border border-slate-700/50 rounded-xl p-6 shadow-xl">
+                        <div className="flex items-center justify-between mb-6">
+                            <h4 className="text-lg font-semibold text-slate-200">Análise por Fornecedor (Razão Social)</h4>
+                            <span className="text-xs bg-slate-800 text-slate-400 px-3 py-1 rounded-full border border-slate-700">
+                                {specificDashboardData.supplierData.length} Fornecedores Encontrados
+                            </span>
                         </div>
 
-                        {/* DRE Summary Table - Styled like Debug Section */}
-                        <div className="bg-black/50 backdrop-blur-sm border border-slate-700/50 rounded-xl p-4 font-mono text-xs shadow-2xl flex-1 flex flex-col">
-                            <div className="flex justify-between items-center mb-4 border-b border-slate-800 pb-2">
-                                <h4 className="text-emerald-400 font-bold text-sm tracking-wider uppercase">Detalhamento Analítico</h4>
-                                <span className="text-[10px] bg-slate-900 text-slate-400 px-2 py-1 rounded border border-slate-800">
-                                    {generalDashboardData.fullSummary.length} CATEGORIAS
-                                </span>
-                            </div>
-
-                            <div className="overflow-y-auto max-h-[400px] flex-1 scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent">
-                                <table className="w-full text-left">
-                                    <thead className="bg-slate-900/90 text-slate-400 sticky top-0 z-10 backdrop-blur-sm">
-                                        <tr>
-                                            <th className="p-3 font-semibold uppercase">Categoria</th>
-                                            <th className="p-3 font-semibold text-right uppercase">Valor</th>
-                                            <th className="p-3 font-semibold text-right uppercase">% Total</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-slate-800/50">
-                                        {generalDashboardData.fullSummary.map((item, idx) => (
-                                            <tr key={idx} className="hover:bg-white/5 transition-colors group text-slate-300 hover:text-white">
-                                                <td className="p-2 truncate max-w-[220px]" title={item.name}>
-                                                    {idx + 1}. {item.name}
-                                                </td>
-                                                <td className="p-2 text-right font-bold text-emerald-300/90">
-                                                    {formatCurrency(item.value)}
-                                                </td>
-                                                <td className="p-2 text-right w-24">
-                                                    <div className="flex flex-col items-end gap-1">
-                                                        <span className="text-[10px] text-slate-500">{item.percent.toFixed(1)}%</span>
-                                                        <div className="w-16 h-1 bg-slate-800 rounded-full overflow-hidden">
-                                                            <div
-                                                                className="h-full bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]"
-                                                                style={{ width: `${Math.min(item.percent, 100)}%` }}
-                                                            />
-                                                        </div>
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-left text-sm">
+                                <thead className="bg-slate-900/50 text-slate-400 border-b border-slate-700">
+                                    <tr>
+                                        <th className="p-4 font-semibold">Fornecedor / Razão Social</th>
+                                        <th className="p-4 font-semibold text-right">Revenda</th>
+                                        <th className="p-4 font-semibold text-right">Laboratório</th>
+                                        <th className="p-4 font-semibold text-right">Total</th>
+                                        <th className="p-4 font-semibold text-right text-xs">% Repr.</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-800">
+                                    {specificDashboardData.supplierData.map((supplier, idx) => (
+                                        <tr key={idx} className="hover:bg-slate-800/30 transition-colors">
+                                            <td className="p-4 font-medium text-slate-300">
+                                                <div className="flex flex-col">
+                                                    <span className="truncate max-w-sm" title={supplier.name}>{supplier.name}</span>
+                                                    <span className="text-[10px] text-slate-500">{supplier.count} registros</span>
+                                                </div>
+                                            </td>
+                                            <td className="p-4 text-right text-emerald-400/80">
+                                                {supplier.revenda > 0 ? formatCurrency(supplier.revenda) : '-'}
+                                            </td>
+                                            <td className="p-4 text-right text-blue-400/80">
+                                                {supplier.laboratorio > 0 ? formatCurrency(supplier.laboratorio) : '-'}
+                                            </td>
+                                            <td className="p-4 text-right font-bold text-white">
+                                                {formatCurrency(supplier.value)}
+                                            </td>
+                                            <td className="p-4 text-right">
+                                                <div className="flex items-center justify-end gap-2">
+                                                    <span className="text-xs text-slate-400">
+                                                        {specificDashboardData.kpis.total > 0
+                                                            ? ((supplier.value / specificDashboardData.kpis.total) * 100).toFixed(1)
+                                                            : 0}%
+                                                    </span>
+                                                    <div className="w-16 h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                                                        <div
+                                                            className="h-full bg-indigo-500"
+                                                            style={{
+                                                                width: `${specificDashboardData.kpis.total > 0
+                                                                    ? (supplier.value / specificDashboardData.kpis.total) * 100
+                                                                    : 0}%`
+                                                            }}
+                                                        />
                                                     </div>
-                                                </td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                    {specificDashboardData.supplierData.length === 0 && (
+                                        <tr>
+                                            <td colSpan={5} className="p-8 text-center text-slate-500">
+                                                Nenhum fornecedor encontrado para os filtros selecionados.
+                                            </td>
+                                        </tr>
+                                    )}
+                                </tbody>
+                            </table>
                         </div>
                     </div>
                 </div>

@@ -19,8 +19,30 @@ export const CompanyListbox: React.FC<CompanyListboxProps> = ({
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [localSelected, setLocalSelected] = useState<string[]>(empresasSelecionadas);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
+
+  // Sincroniza o estado local quando a prop muda (ex: atualização externa/inicial)
+  useEffect(() => {
+    setLocalSelected(empresasSelecionadas);
+  }, [empresasSelecionadas]);
+
+  // Debounce para aplicar o filtro após o usuário parar de selecionar
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      // Verifica se houve mudança real para evitar loops ou chamadas desnecessárias
+      const hasChanged =
+        localSelected.length !== empresasSelecionadas.length ||
+        !localSelected.every((id) => empresasSelecionadas.includes(id));
+
+      if (hasChanged) {
+        onSelectionChange(localSelected);
+      }
+    }, 1500); // 1.5 segundos de delay
+
+    return () => clearTimeout(timer);
+  }, [localSelected, empresasSelecionadas, onSelectionChange]);
 
   useEffect(() => {
     if (autoFocus && buttonRef.current) {
@@ -57,27 +79,28 @@ export const CompanyListbox: React.FC<CompanyListboxProps> = ({
 
   const handleToggleEmpresa = (id: string) => {
     if (mode === 'single') {
-      onSelectionChange([id]);
+      setLocalSelected([id]);
       setIsOpen(false);
     } else {
-      const newSelection = empresasSelecionadas.includes(id)
-        ? empresasSelecionadas.filter(e => e !== id)
-        : [...empresasSelecionadas, id];
-      onSelectionChange(newSelection);
-      setIsOpen(false);
+      const newSelection = localSelected.includes(id)
+        ? localSelected.filter(e => e !== id)
+        : [...localSelected, id];
+      setLocalSelected(newSelection);
     }
   };
 
   const handleSelectAll = () => {
-    if (empresasSelecionadas.length === empresas.length) {
-      onSelectionChange([]);
+    if (localSelected.length === empresas.length) {
+      setLocalSelected([]);
     } else {
-      onSelectionChange(empresas.map(e => e.id_empresa));
+      setLocalSelected(empresas.map(e => e.id_empresa));
     }
-    setIsOpen(false);
+    // Mantém aberto para permitir ver o resultado ou ajusta conforme UX desejada
+    // setIsOpen(false); // Comentado para permitir que o usuário veja a ação
   };
 
-  const validSelectedIds = empresasSelecionadas.filter(id =>
+  // Usa o estado local para exibir o que está selecionado na UI
+  const validSelectedIds = localSelected.filter(id =>
     empresas.some(e => e.id_empresa === id)
   );
 
@@ -103,7 +126,7 @@ export const CompanyListbox: React.FC<CompanyListboxProps> = ({
         onClick={() => setIsOpen(!isOpen)}
         className="w-full px-3 h-8 text-xs bg-slate-800/50 border border-slate-700/50 rounded-md text-slate-200 focus:outline-none focus:ring-1 focus:ring-cyan-500/50 transition-all flex items-center justify-between hover:bg-slate-800 hover:border-slate-600"
       >
-        <span className={`truncate mr-2 ${empresasSelecionadas.length === 0 ? 'text-slate-500' : ''}`}>
+        <span className={`truncate mr-2 ${localSelected.length === 0 ? 'text-slate-500' : ''}`}>
           {getButtonText()}
         </span>
         <ChevronDown
@@ -134,10 +157,10 @@ export const CompanyListbox: React.FC<CompanyListboxProps> = ({
                 onClick={handleSelectAll}
                 className="w-full text-left px-2 py-1 text-[11px] text-cyan-400 hover:text-cyan-300 transition-colors font-medium flex items-center"
               >
-                <div className={`w-3.5 h-3.5 rounded border border-cyan-500/50 mr-2 flex items-center justify-center ${empresasSelecionadas.length === empresas.length ? 'bg-cyan-500/10' : ''}`}>
-                  {empresasSelecionadas.length === empresas.length && <Check className="w-2.5 h-2.5" />}
+                <div className={`w-3.5 h-3.5 rounded border border-cyan-500/50 mr-2 flex items-center justify-center ${localSelected.length === empresas.length ? 'bg-cyan-500/10' : ''}`}>
+                  {localSelected.length === empresas.length && <Check className="w-2.5 h-2.5" />}
                 </div>
-                {empresasSelecionadas.length === empresas.length
+                {localSelected.length === empresas.length
                   ? 'Desmarcar todas'
                   : 'Selecionar todas'}
               </button>
@@ -151,7 +174,7 @@ export const CompanyListbox: React.FC<CompanyListboxProps> = ({
               </div>
             ) : (
               filteredEmpresas.map((empresa) => {
-                const isSelected = empresasSelecionadas.includes(empresa.id_empresa);
+                const isSelected = localSelected.includes(empresa.id_empresa);
                 const nomeEmpresa = empresa.ds_empresa;
 
                 return (
