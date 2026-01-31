@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 
 export interface SalesKPIs {
@@ -31,11 +31,7 @@ export interface TopSeller {
   vendas: number;
 }
 
-export interface PaymentMethod {
-  forma: string;
-  valor: number;
-  porcentagem: number;
-}
+
 
 export interface OSResume {
   os_abertas: number;
@@ -59,7 +55,7 @@ export interface SalesData {
   kpis: SalesKPIs;
   tendencia: SalesTrend[];
   top_vendedores: TopSeller[];
-  formas_pagamento: PaymentMethod[];
+
   resumo_os: OSResume;
   ranking_descontos: DescontoRanking[];
   ranking_recorrencia: RecorrenciaCliente[];
