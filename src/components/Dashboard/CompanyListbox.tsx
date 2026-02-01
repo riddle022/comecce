@@ -39,7 +39,7 @@ export const CompanyListbox: React.FC<CompanyListboxProps> = ({
       if (hasChanged) {
         onSelectionChange(localSelected);
       }
-    }, 1500); // 1.5 segundos de delay
+    }, 400); // Reduzido de 1.5s para 400ms para maior fluidez
 
     return () => clearTimeout(timer);
   }, [localSelected, empresasSelecionadas, onSelectionChange]);
