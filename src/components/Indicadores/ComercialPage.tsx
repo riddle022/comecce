@@ -1,10 +1,9 @@
-import React, { useState, useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Bar, BarChart, CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { useGlobalFilters } from '../../contexts/GlobalFiltersContext';
 import { useSalesData } from '../../hooks/useSalesData';
 import { FilterPanel } from '../Common/FilterPanel';
 import { FaturamentoTable } from './FaturamentoTable';
-import { PaymentDistributionCard } from './PaymentDistributionCard';
 
 export const ComercialPage: React.FC = () => {
   const { filters, updateFilters } = useGlobalFilters();
@@ -394,7 +393,7 @@ export const ComercialPage: React.FC = () => {
         </div>
       </div >
 
-      <PaymentDistributionCard data={data.formas_pagamento} />
+
     </div >
   );
 };

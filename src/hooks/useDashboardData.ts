@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 
 export interface DashboardKPIs {
@@ -34,11 +34,7 @@ export interface TopGrupo {
   quantidade: number;
 }
 
-export interface FormaPagamento {
-  forma: string;
-  valor: number;
-  porcentagem: number;
-}
+
 
 export interface ResumoOS {
   os_nao_entregues: number;
@@ -51,7 +47,7 @@ export interface DashboardData {
   top_vendedores: TopVendedor[];
   top_produtos: TopProduto[];
   top_grupos: TopGrupo[];
-  formas_pagamento: FormaPagamento[];
+
   resumo_os: ResumoOS;
 }
 
