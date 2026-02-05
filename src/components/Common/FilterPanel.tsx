@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Calendar, Link2 } from 'lucide-react';
 import { CompanyListbox } from '../Dashboard/CompanyListbox';
 import { usePermissions } from '../../hooks/usePermissions';
@@ -21,7 +21,7 @@ export const FilterPanel: React.FC<FilterPanelProps> = ({
   showDateRange = true,
   showEmpresas = true,
 }) => {
-  const { getEmpresas, loading: permissionsLoading } = usePermissions();
+  const { getEmpresas } = usePermissions();
   const { filters: globalFilters, isGlobalMode, setGlobalMode, updateFilters } = useGlobalFilters();
 
   const getDefaultDateRange = () => {
@@ -50,22 +50,7 @@ export const FilterPanel: React.FC<FilterPanelProps> = ({
 
   const empresas = getEmpresas();
 
-  useEffect(() => {
-    // Auto-select first company IF none are selected and we have list of companies
-    if (!permissionsLoading && empresas.length > 0 && empresasSelecionadas.length === 0) {
-      const firstEmpresaId = [empresas[0].id_empresa];
-      if (isGlobalMode) {
-        updateFilters({ empresaIds: firstEmpresaId });
-      } else {
-        setLocalEmpresas(firstEmpresaId);
-      }
 
-      // Notify parent of the automatic selection
-      if (onEmpresasChange) {
-        onEmpresasChange(firstEmpresaId);
-      }
-    }
-  }, [permissionsLoading, empresas.length]); // Optimized dependency
 
   // REMOVED: Redundant useEffect that was triggering onDateRangeChange/onEmpresasChange 
   // on every global filter change. This became problematic during mode transitions.

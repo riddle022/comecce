@@ -58,12 +58,14 @@ export const ComprasPage: React.FC = () => {
     const specificDashboardData = useMemo(() => {
         if (!data) return { chartData: [], supplierData: [], kpis: { total: 0 } };
 
-        // Relaxed matching strings (lowercase, partial)
-        const MATCH_REVENDA = 'compra de mercadorias para revenda';
-        const MATCH_LAB = 'compra laborat'; // Matches 'Laboratório' and 'Laboratorio'
-
-        const isRevenda = (cat: string) => (cat || '').toLowerCase().includes(MATCH_REVENDA);
-        const isLab = (cat: string) => (cat || '').toLowerCase().includes(MATCH_LAB);
+        const isRevenda = (cat: string) => {
+            const lc = (cat || '').toLowerCase();
+            return lc.startsWith('2.002') && (lc.includes('compra') || lc.includes('revenda')) && !lc.includes('laborat');
+        };
+        const isLab = (cat: string) => {
+            const lc = (cat || '').toLowerCase();
+            return lc.startsWith('2.002') && lc.includes('laborat');
+        };
 
         const filtered = data.filter(item => isRevenda(item.categoria) || isLab(item.categoria));
 
