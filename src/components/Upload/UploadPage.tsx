@@ -515,10 +515,10 @@ export const UploadPage: React.FC = () => {
             <div className="flex items-center space-x-2">
               <span className="text-sm font-bold text-white">
                 {result?.status === 'sucesso'
-                  ? 'Procesado con éxito'
+                  ? 'Procesado com Sucesso'
                   : result?.status === 'falha'
                     ? 'Procesado con errores'
-                    : uploadType === 'operacional' ? '3 archivos listos' : 'Archivo listo'}
+                    : uploadType === 'operacional' ? '3 archivos listos' : 'Arquivo Carregado'}
               </span>
               <div className={`w-1 h-1 rounded-full ${result?.status === 'sucesso' ? 'bg-emerald-500' : result?.status === 'falha' ? 'bg-rose-500' : 'bg-emerald-500'}`} />
             </div>
