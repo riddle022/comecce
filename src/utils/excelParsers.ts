@@ -168,21 +168,30 @@ export async function parseVendasExcel(file: File, ds_empresa: string): Promise<
 
         let lastHeader: VendaHeader | null = null;
 
-        // Start from row 4 (index 3), skipping 3 rows of headers
-        for (let i = 3; i < data.length; i++) {
+        // SMART PARSER: Row-invariant processing
+        for (let i = 0; i < data.length; i++) {
             const row: any = data[i];
             const linha = i + 1;
 
             try {
-                const numero_venda = parseInteger(getCellValue(row, 'B'));
+                const cellB = getCellValue(row, 'B');
+                const cellT = getCellValue(row, 'T');
+
+                // 1. Detect Header Row: Skip if Col B contains literal "Venda"
+                if (typeof cellB === 'string' && cellB.toLowerCase().includes('venda')) {
+                    continue;
+                }
+
+                // 2. Detect New Sale Header (Numero Venda)
+                const numero_venda = parseInteger(cellB);
                 if (numero_venda) {
                     const empresaArquivo = normalizeText(getCellValue(row, 'A'));
-                    if (!compareNormalized(empresaArquivo, ds_empresa)) {
+                    if (empresaArquivo && !compareNormalized(empresaArquivo, ds_empresa)) {
                         erros.push({
                             arquivo: 'Vendas',
                             linha,
                             valor: empresaArquivo,
-                            descricao: `A empresa no arquivo ("${empresaArquivo}") não coincide com a empresa selecionada ("${ds_empresa}")`
+                            descricao: `A empresa no arquivo ("${empresaArquivo}") não coincide con la empresa seleccionada ("${ds_empresa}")`
                         });
                         return { vendas: [], erros };
                     }
@@ -197,9 +206,11 @@ export async function parseVendasExcel(file: File, ds_empresa: string): Promise<
                     };
                 }
 
-                const item_ds_referencia = normalizeText(getCellValue(row, 'T'));
-                if (item_ds_referencia) {
+                // 3. Process Product Item if Reference (Col T) is present
+                const item_ds_referencia = normalizeText(cellT);
+                if (item_ds_referencia && item_ds_referencia !== 'Referência') {
                     if (!lastHeader) {
+                        // Only error if it's not a known header row and has a reference but no sale header
                         erros.push({ arquivo: 'Vendas', linha, coluna: 'B', descricao: 'Item encontrado sem cabeçalho de venda anterior' });
                         continue;
                     }
@@ -236,12 +247,23 @@ export async function parseProdutosExcel(file: File): Promise<{ produtos: Produt
         const sheetName = workbook.SheetNames[0];
         const data = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], { header: 'A', defval: null });
 
-        for (let i = 3; i < data.length; i++) {
+        // SMART PARSER: Row-invariant processing
+        for (let i = 0; i < data.length; i++) {
             const row: any = data[i];
             const linha = i + 1;
+
             try {
-                const item_ds_referencia = normalizeText(getCellValue(row, 'A'));
-                if (!item_ds_referencia) continue;
+                const item_ds_referencia = normalizeText(getCellValue(row, 'B'));
+
+                // 1. Skip Header: If Col B contains literal "Referencia"
+                if (item_ds_referencia.toLowerCase().includes('referencia') || item_ds_referencia.toLowerCase().includes('referência')) {
+                    continue;
+                }
+
+                // 2. Skip Empty rows
+                if (!item_ds_referencia) {
+                    continue;
+                }
 
                 const quantidade = parseInteger(getCellValue(row, 'L'));
                 const custo_total = parseDecimal(getCellValue(row, 'N'));
@@ -249,6 +271,7 @@ export async function parseProdutosExcel(file: File): Promise<{ produtos: Produt
                 if (custo_total !== null && quantidade !== null && quantidade > 0) {
                     custo_unitario = custo_total / quantidade;
                 }
+
                 produtos.push({
                     item_ds_referencia,
                     item_ds_grupo: normalizeText(getCellValue(row, 'C')),
