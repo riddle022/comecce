@@ -145,15 +145,26 @@ function getCellValue(row: any, column: string): any {
 
 function parseDecimal(value: any): number | null {
     if (value === null || value === undefined || value === '') return null;
-    const parsed = typeof value === 'number' ? value : parseFloat(value.toString().replace(',', '.'));
+    if (typeof value === 'number') return value;
+
+    // Strict BR format: remove dots (thousands), replace comma with dot (decimal)
+    let str = value.toString().trim();
+    str = str.replace(/\./g, '').replace(',', '.');
+
+    const parsed = parseFloat(str);
     return isNaN(parsed) ? null : parsed;
 }
 
 function parseInteger(value: any): number | null {
     if (value === null || value === undefined || value === '') return null;
     if (typeof value === 'number') return Math.floor(value);
-    const match = value.toString().match(/\d+/);
-    return match ? parseInt(match[0]) : null;
+
+    // Strict BR format for integers
+    let str = value.toString().trim();
+    str = str.replace(/\./g, '').replace(',', '.');
+
+    const parsed = parseFloat(str);
+    return isNaN(parsed) ? null : Math.floor(parsed);
 }
 
 // =============== PARSERS ===============
@@ -253,10 +264,15 @@ export async function parseProdutosExcel(file: File): Promise<{ produtos: Produt
             const linha = i + 1;
 
             try {
-                const item_ds_referencia = normalizeText(getCellValue(row, 'B'));
+                // Col A = Referência (código de referência do produto)
+                const item_ds_referencia = normalizeText(getCellValue(row, 'A'));
 
-                // 1. Skip Header: If Col B contains literal "Referencia"
-                if (item_ds_referencia.toLowerCase().includes('referencia') || item_ds_referencia.toLowerCase().includes('referência')) {
+                // 1. Skip Header: If Col A contains "Referencia" or Col B contains "Descri"
+                if (
+                    item_ds_referencia.toLowerCase().includes('referencia') ||
+                    item_ds_referencia.toLowerCase().includes('referência') ||
+                    normalizeText(getCellValue(row, 'B')).toLowerCase().includes('descri')
+                ) {
                     continue;
                 }
 
@@ -266,9 +282,12 @@ export async function parseProdutosExcel(file: File): Promise<{ produtos: Produt
                 }
 
                 const quantidade = parseInteger(getCellValue(row, 'L'));
-                const custo_total = parseDecimal(getCellValue(row, 'N'));
-                let custo_unitario: number | null = null;
-                if (custo_total !== null && quantidade !== null && quantidade > 0) {
+                // Treat empty cost as 0 as requested
+                const custoRaw = parseDecimal(getCellValue(row, 'N'));
+                const custo_total = custoRaw ?? 0;
+                let custo_unitario: number | null = 0;
+
+                if (quantidade !== null && quantidade > 0) {
                     custo_unitario = custo_total / quantidade;
                 }
 
@@ -370,14 +389,14 @@ export function enrichVendasWithProdutos(vendas: VendaBase[], produtos: ProdutoD
 
     for (const venda of vendas) {
         const produtosRelacionados = produtosByVenda.get(venda.numero_venda) || [];
-        const produto = produtosRelacionados.find(p => p.item_ds_referencia === venda.item_ds_referencia) || produtosRelacionados[0];
+        const produto = produtosRelacionados.find(p => compareNormalized(p.item_ds_referencia, venda.item_ds_referencia)) || produtosRelacionados[0];
 
         vendasEnriquecidas.push({
             ...venda,
-            item_ds_grupo: produto?.item_ds_grupo || null,
-            item_ds_grife: produto?.item_ds_grife || null,
-            item_ds_fornecedor: produto?.item_ds_fornecedor || null,
-            item_vl_custo_unitario: produto?.custo_unitario || null
+            item_ds_grupo: produto?.item_ds_grupo ?? null,
+            item_ds_grife: produto?.item_ds_grife ?? null,
+            item_ds_fornecedor: produto?.item_ds_fornecedor ?? null,
+            item_vl_custo_unitario: produto?.custo_unitario ?? null
         });
     }
     return { vendasEnriquecidas, erros };
@@ -397,7 +416,7 @@ export function enrichOrdemServicoWithProdutos(ordensServico: OrdemServicoData[]
 
     for (const os of ordensServico) {
         const produtosRelacionados = produtosByOS.get(os.numero_os) || [];
-        const produto = produtosRelacionados.find(p => p.item_ds_referencia === os.item_ds_referencia) || produtosRelacionados[0];
+        const produto = produtosRelacionados.find(p => compareNormalized(p.item_ds_referencia, os.item_ds_referencia)) || produtosRelacionados[0];
 
         if (produto) {
             let custo_unitario = null;
