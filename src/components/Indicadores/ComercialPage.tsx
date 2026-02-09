@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { Bar, BarChart, CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { useGlobalFilters } from '../../contexts/GlobalFiltersContext';
 import { useSalesData } from '../../hooks/useSalesData';
+import { useFaturamentoRankings } from '../../hooks/useFaturamentoRankings';
 import { FilterPanel } from '../Common/FilterPanel';
 import { FaturamentoTable } from './FaturamentoTable';
 
@@ -9,6 +10,12 @@ export const ComercialPage: React.FC = () => {
   const { filters, updateFilters } = useGlobalFilters();
 
   const { data, loading, error } = useSalesData({
+    dataInicio: filters.dataInicio,
+    dataFim: filters.dataFim,
+    empresaIds: filters.empresaIds
+  });
+
+  const { data: rankingsData, loading: rankingsLoading } = useFaturamentoRankings({
     dataInicio: filters.dataInicio,
     dataFim: filters.dataFim,
     empresaIds: filters.empresaIds
@@ -286,9 +293,13 @@ export const ComercialPage: React.FC = () => {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <div className="bg-[#1E293B] border border-[#0F4C5C]/20 rounded-xl p-4">
           <h3 className="text-base font-semibold text-white mb-3">Ranking Descontos por Vendedor</h3>
-          {data.ranking_descontos && data.ranking_descontos.length > 0 ? (
+          {rankingsLoading ? (
+            <div className="flex items-center justify-center h-[250px]">
+              <div className="w-8 h-8 border-2 border-[#0F4C5C] border-t-transparent rounded-full animate-spin"></div>
+            </div>
+          ) : rankingsData?.ranking_descontos && rankingsData.ranking_descontos.length > 0 ? (
             <ResponsiveContainer width="100%" height={250}>
-              <BarChart data={data.ranking_descontos} layout="vertical" barSize={24} margin={{ right: 60 }}>
+              <BarChart data={rankingsData.ranking_descontos} layout="vertical" barSize={24} margin={{ right: 60 }}>
                 <defs>
                   <linearGradient id="descontoGradient" x1="0" y1="0" x2="1" y2="0">
                     <stop offset="0%" stopColor="#F59E0B" />
@@ -370,8 +381,16 @@ export const ComercialPage: React.FC = () => {
                 </tr>
               </thead>
               <tbody>
-                {data.ranking_recorrencia && data.ranking_recorrencia.length > 0 ? (
-                  data.ranking_recorrencia.map((item, index) => (
+                {rankingsLoading ? (
+                  <tr>
+                    <td colSpan={3} className="px-4 py-8 text-center">
+                      <div className="flex justify-center">
+                        <div className="w-6 h-6 border-2 border-[#0F4C5C] border-t-transparent rounded-full animate-spin"></div>
+                      </div>
+                    </td>
+                  </tr>
+                ) : rankingsData?.ranking_recorrencia && rankingsData.ranking_recorrencia.length > 0 ? (
+                  rankingsData.ranking_recorrencia.map((item, index) => (
                     <tr key={index} className="border-b border-[#0F4C5C]/10 hover:bg-[#0F4C5C]/5">
                       <td className="px-4 py-3 font-medium text-white">{item.cliente}</td>
                       <td className="px-4 py-3 text-center text-cyan-400">{item.qtd_compras}</td>

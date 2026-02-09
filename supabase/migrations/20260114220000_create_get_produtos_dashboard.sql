@@ -40,6 +40,7 @@ DECLARE
   v_produtos_vendidos bigint;
   v_faturamento_total numeric;
   v_custo_total numeric;
+  v_desconto_total numeric;
   v_lucro_bruto_total numeric;
   v_margem_lucro_media numeric;
   
@@ -52,11 +53,13 @@ BEGIN
   SELECT
     COALESCE(SUM(item_nr_quantidade), 0),
     COALESCE(SUM(item_valor_total_liquido), 0),
-    COALESCE(SUM(COALESCE(item_vl_custo_unitario, 0) * item_nr_quantidade), 0)
+    COALESCE(SUM(COALESCE(item_vl_custo_unitario, 0) * item_nr_quantidade), 0),
+    COALESCE(SUM(item_desconto_total), 0)
   INTO
     v_produtos_vendidos,
     v_faturamento_total,
-    v_custo_total
+    v_custo_total,
+    v_desconto_total
   FROM tbl_vendas
   WHERE
     DATE(data_venda) BETWEEN p_data_inicio AND p_data_fim
@@ -142,6 +145,8 @@ BEGIN
   v_result := json_build_object(
     'kpis', json_build_object(
       'produtos_vendidos', v_produtos_vendidos,
+      'faturamento_total', v_faturamento_total,
+      'desconto_total', v_desconto_total,
       'lucro_bruto_total', v_lucro_bruto_total,
       'custo_total_cmv', v_custo_total,
       'margem_lucro_media', v_margem_lucro_media,
