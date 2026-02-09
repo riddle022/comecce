@@ -46,13 +46,13 @@ export const ComercialPage: React.FC = () => {
   };
 
   const aggregatedTrendData = useMemo(() => {
-    if (!data?.tendencia) return [];
+    if (!rankingsData?.tendencia) return [];
 
-    if (chartPeriod === 'dia') return data.tendencia;
+    if (chartPeriod === 'dia') return rankingsData.tendencia;
 
     const groupedData: Record<string, { data: string; valor_bruto: number; valor_liquido: number }> = {};
 
-    data.tendencia.forEach((item) => {
+    rankingsData.tendencia.forEach((item) => {
       const date = new Date(item.data + 'T12:00:00'); // Valid date parsing
       let key = '';
 
@@ -73,7 +73,7 @@ export const ComercialPage: React.FC = () => {
 
     return Object.values(groupedData).sort((a, b) => a.data.localeCompare(b.data));
 
-  }, [data?.tendencia, chartPeriod]);
+  }, [rankingsData?.tendencia, chartPeriod]);
 
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr + 'T12:00:00'); // Fix timezone issues
@@ -280,10 +280,18 @@ export const ComercialPage: React.FC = () => {
               <Line
                 type="monotone"
                 dataKey="valor_bruto"
-                stroke="#0F4C5C"
+                stroke="#F59E0B"
                 strokeWidth={2}
-                dot={{ fill: '#0F4C5C' }}
+                dot={{ fill: '#F59E0B' }}
                 name="Faturamento Bruto"
+              />
+              <Line
+                type="monotone"
+                dataKey="valor_liquido"
+                stroke="#10B981"
+                strokeWidth={2}
+                dot={{ fill: '#10B981' }}
+                name="Faturamento Líquido"
               />
             </LineChart>
           </ResponsiveContainer>

@@ -13,9 +13,16 @@ export interface RecorrenciaCliente {
     valor_total: number;
 }
 
+export interface SalesTrend {
+    data: string;
+    valor_bruto: number;
+    valor_liquido: number;
+}
+
 export interface FaturamentoRankingsData {
     ranking_descontos: DescontoRanking[];
     ranking_recorrencia: RecorrenciaCliente[];
+    tendencia: SalesTrend[];
 }
 
 interface UseFaturamentoRankingsParams {
