@@ -1,10 +1,11 @@
 import { Activity, ShoppingBag } from 'lucide-react';
 import React, { useMemo } from 'react';
 import {
-    Bar,
-    BarChart,
+    Area,
+    AreaChart,
     CartesianGrid,
     LabelList,
+    Legend,
     ResponsiveContainer,
     Tooltip,
     XAxis,
@@ -38,6 +39,15 @@ export const ComprasPage: React.FC = () => {
         }).format(value);
     };
 
+    const formatCompact = (value: number) => {
+        if (!value || value === 0) return '';
+        if (value >= 1000) {
+            const k = value / 1000;
+            return k % 1 === 0 ? `${k.toFixed(0)}k` : `${k.toFixed(1).replace('.', ',')}k`;
+        }
+        return value.toFixed(0);
+    };
+
     const formatDate = (dateString: string) => {
         if (!dateString) return '';
         // If dateString is YYYY-MM, append -01 to make it a valid full date for parsing if needed, 
@@ -60,7 +70,7 @@ export const ComprasPage: React.FC = () => {
 
         const isRevenda = (cat: string) => {
             const lc = (cat || '').toLowerCase();
-            return lc.startsWith('2.002') && (lc.includes('compra') || lc.includes('revenda')) && !lc.includes('laborat');
+            return lc.startsWith('2.002') && lc.includes('compra') && !lc.includes('laborat');
         };
         const isLab = (cat: string) => {
             const lc = (cat || '').toLowerCase();
@@ -226,66 +236,111 @@ export const ComprasPage: React.FC = () => {
                         </div>
                     </div>
 
-                    {/* Comparative Bar Chart */}
-                    <div className="md:col-span-2 bg-[#1E293B] border border-slate-700 rounded-xl p-6 shadow-xl relative min-h-[300px]">
-                        <div className="flex items-center justify-between mb-6">
+                    {/* Comparative Area Chart with inline labels */}
+                    <div className="md:col-span-2 bg-[#1E293B] border border-slate-700 rounded-xl p-6 shadow-xl relative">
+                        <div className="flex items-center justify-between mb-2">
                             <h4 className="text-sm font-semibold text-slate-300">Evolução de Custos Diretos</h4>
-                            <div className="flex items-center space-x-4 text-xs font-medium">
-                                <div className="flex items-center space-x-1.5">
-                                    <div className="w-3 h-3 rounded bg-emerald-500"></div>
-                                    <span className="text-slate-400">Revenda</span>
-                                </div>
-                                <div className="flex items-center space-x-1.5">
-                                    <div className="w-3 h-3 rounded bg-blue-500"></div>
-                                    <span className="text-slate-400">Laboratório</span>
-                                </div>
-                            </div>
                         </div>
 
-                        <div className="h-[230px] w-full">
+                        <div className="h-[380px] w-full">
                             <ResponsiveContainer width="100%" height="100%">
-                                <BarChart data={specificDashboardData.chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#334155" />
+                                <AreaChart data={specificDashboardData.chartData} margin={{ top: 30, right: 20, left: 10, bottom: 5 }}>
+                                    <defs>
+                                        <linearGradient id="gradRevenda" x1="0" y1="0" x2="0" y2="1">
+                                            <stop offset="5%" stopColor="#10B981" stopOpacity={0.25} />
+                                            <stop offset="95%" stopColor="#10B981" stopOpacity={0.02} />
+                                        </linearGradient>
+                                        <linearGradient id="gradLab" x1="0" y1="0" x2="0" y2="1">
+                                            <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.25} />
+                                            <stop offset="95%" stopColor="#3B82F6" stopOpacity={0.02} />
+                                        </linearGradient>
+                                    </defs>
+                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#1e293b" />
                                     <XAxis
                                         dataKey="date"
-                                        stroke="#94A3B8"
+                                        stroke="#64748B"
                                         tickFormatter={formatDate}
-                                        tick={{ fontSize: 12 }}
+                                        tick={{ fontSize: 11 }}
                                         axisLine={false}
                                         tickLine={false}
                                     />
                                     <YAxis
-                                        stroke="#94A3B8"
-                                        tickFormatter={(val) => `R$${val / 1000}k`}
-                                        tick={{ fontSize: 12 }}
+                                        stroke="#64748B"
+                                        tickFormatter={(val) => {
+                                            if (val >= 1000) return `R$${(val / 1000).toFixed(0)}k`;
+                                            return `R$${val}`;
+                                        }}
+                                        tick={{ fontSize: 11 }}
                                         axisLine={false}
                                         tickLine={false}
+                                        width={60}
                                     />
                                     <Tooltip
-                                        cursor={{ fill: '#334155', opacity: 0.2 }}
-                                        contentStyle={{ backgroundColor: '#0F172A', borderColor: '#334155', borderRadius: '8px', color: '#fff' }}
-                                        formatter={(value?: number) => [formatCurrency(value || 0), '']}
+                                        cursor={{ stroke: '#475569', strokeWidth: 1, strokeDasharray: '4 4' }}
+                                        contentStyle={{
+                                            backgroundColor: '#0F172A',
+                                            borderColor: '#334155',
+                                            borderRadius: '12px',
+                                            padding: '12px 16px',
+                                            boxShadow: '0 10px 25px rgba(0,0,0,0.4)',
+                                        }}
+                                        labelStyle={{ color: '#94A3B8', fontSize: 12, marginBottom: 8, fontWeight: 600 }}
+                                        itemStyle={{ color: '#E2E8F0', fontSize: 13, padding: '2px 0' }}
+                                        formatter={(value?: number, name?: string) => {
+                                            const label = name === 'revenda' ? 'Revenda' : 'Laboratório';
+                                            return [formatCurrency(value || 0), label];
+                                        }}
                                         labelFormatter={formatDate}
                                     />
-                                    <Bar dataKey="revenda" name="Revenda" fill="#10B981" radius={[4, 4, 0, 0]} maxBarSize={50}>
+                                    <Legend
+                                        verticalAlign="top"
+                                        align="right"
+                                        iconType="circle"
+                                        iconSize={8}
+                                        wrapperStyle={{ fontSize: 12, color: '#94A3B8', paddingBottom: 12 }}
+                                        formatter={(value: string) => value === 'revenda' ? 'Revenda' : 'Laboratório'}
+                                    />
+                                    <Area
+                                        type="monotone"
+                                        dataKey="revenda"
+                                        name="revenda"
+                                        stroke="#10B981"
+                                        strokeWidth={2.5}
+                                        fill="url(#gradRevenda)"
+                                        dot={{ r: 4, fill: '#10B981', stroke: '#0F172A', strokeWidth: 2 }}
+                                        activeDot={{ r: 6, fill: '#10B981', stroke: '#fff', strokeWidth: 2 }}
+                                    >
                                         <LabelList
                                             dataKey="revenda"
                                             position="top"
-                                            fill="#10B981"
-                                            fontSize={10}
-                                            formatter={(val: any) => formatCurrency(Number(val))}
+                                            offset={10}
+                                            fill="#6EE7B7"
+                                            fontSize={11}
+                                            fontWeight={700}
+                                            formatter={(val: any) => formatCompact(Number(val))}
                                         />
-                                    </Bar>
-                                    <Bar dataKey="laboratorio" name="Laboratório" fill="#3B82F6" radius={[4, 4, 0, 0]} maxBarSize={50}>
+                                    </Area>
+                                    <Area
+                                        type="monotone"
+                                        dataKey="laboratorio"
+                                        name="laboratorio"
+                                        stroke="#3B82F6"
+                                        strokeWidth={2.5}
+                                        fill="url(#gradLab)"
+                                        dot={{ r: 4, fill: '#3B82F6', stroke: '#0F172A', strokeWidth: 2 }}
+                                        activeDot={{ r: 6, fill: '#3B82F6', stroke: '#fff', strokeWidth: 2 }}
+                                    >
                                         <LabelList
                                             dataKey="laboratorio"
-                                            position="top"
-                                            fill="#3B82F6"
-                                            fontSize={10}
-                                            formatter={(val: any) => formatCurrency(Number(val))}
+                                            position="bottom"
+                                            offset={10}
+                                            fill="#93C5FD"
+                                            fontSize={11}
+                                            fontWeight={700}
+                                            formatter={(val: any) => formatCompact(Number(val))}
                                         />
-                                    </Bar>
-                                </BarChart>
+                                    </Area>
+                                </AreaChart>
                             </ResponsiveContainer>
                         </div>
                     </div>

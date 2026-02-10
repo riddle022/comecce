@@ -56,7 +56,35 @@ Deno.serve(async (req) => {
 
         const id_empresa = empresaData.id_empresa;
 
-        // 2. Create Upload History Record
+        // 2. Drop unique constraint if it exists (allows duplicate rows)
+        try {
+            const dbUrl = Deno.env.get('SUPABASE_DB_URL');
+            if (dbUrl) {
+                const { Pool } = await import('https://deno.land/x/postgres@v0.17.0/mod.ts');
+                const pool = new Pool(dbUrl, 1);
+                const conn = await pool.connect();
+                try {
+                    await conn.queryObject('ALTER TABLE public.tbl_contas DROP CONSTRAINT IF EXISTS tbl_contas_unique_entry');
+                } finally {
+                    conn.release();
+                    await pool.end();
+                }
+            }
+        } catch (err) {
+            console.warn('Alerta: Não foi possível remover constraint:', err.message);
+        }
+
+        // 3. Delete existing contas for this empresa (clean reimport)
+        const { error: deleteError } = await supabase
+            .from('tbl_contas')
+            .delete()
+            .eq('id_empresa', id_empresa);
+
+        if (deleteError) {
+            console.warn('Alerta: Erro ao limpar dados antigos:', deleteError.message);
+        }
+
+        // 3. Create Upload History Record
         // We attempt to create a history record. If the table columns don't exist (migrations not run), this might fail.
         // We'll try-catch this block specifically to avoid blocking the main import if history tracking fails.
         let id_upload: string | undefined;
@@ -89,11 +117,11 @@ Deno.serve(async (req) => {
 
         // 4. Extract Data - strict column index mapping (0-based)
         // Col A = 0 (Empresa)
-        // Col C = 2 (Data Pagamento)
-        // Col G = 6 (Valor Pago)
+        // Col B = 1 (Data Emissão / Competência)
+        // Col F = 5 (Valor Original)
         // Col K = 10 (Categoria)
         // Col L = 11 (Status)
-        // Col N = 13 (Fornecedor)
+        // Col O = 14 (Razão Social / Fornecedor)
 
         const rawData = XLSX.utils.sheet_to_json(sheet, { header: 1 }) as any[][];
         if (rawData.length < 2) {
@@ -135,11 +163,11 @@ Deno.serve(async (req) => {
             // Always add the row if it has minimal data
             filteredRows.push({
                 id_empresa: id_empresa, // Use the one selected in UI
-                data_pagamento: row[2], // Col C
-                valor_pago: row[6],     // Col G
+                data_pagamento: row[1], // Col B (Data Emissão / Competência)
+                valor_pago: row[5],     // Col F (Valor Original)
                 categoria: colK_Categoria, // Col K
                 status: row[11],         // Col L
-                fornecedor: row[13]      // Col N
+                fornecedor: row[14]      // Col O (Razão Social)
             });
         }
 
@@ -211,18 +239,14 @@ Deno.serve(async (req) => {
             return parseFloat(str) || 0;
         };
 
-        const uniqueRowsMap = new Map();
+        const finalRows: any[] = [];
 
         filteredRows.forEach(row => {
             const dateStr = formatDate(row.data_pagamento);
-            // We now ALLOW null dates if that's the issue, or we log it. 
-            // The user said "data de pagamento null", implying he wants to fix the parsing OR he is seeing nulls in DB.
-            // If he IS seeing nulls, it means rows ARE being inserted but date is empty.
-            // Whatever the case, we should try our best to parse.
 
             const mappedRow: any = {
                 id_empresa: row.id_empresa,
-                data_pagamento: dateStr, // Can be null
+                data_pagamento: dateStr,
                 valor_pago: parseNum(row.valor_pago),
                 categoria: String(row.categoria).substring(0, 500),
                 status: String(row.status || '').substring(0, 50),
@@ -234,21 +258,13 @@ Deno.serve(async (req) => {
                 mappedRow.id_upload = id_upload;
             }
 
-            // Exclude completely empty rows (logic check)
+            // Exclude completely empty rows
             if (!mappedRow.valor_pago && !mappedRow.categoria && !mappedRow.fornecedor) {
                 return;
             }
 
-            // Unique key for deduplication within the file
-            // Use normalized string 'null' for key if value is missing
-            const key = `${mappedRow.id_empresa}|${mappedRow.data_pagamento || 'null'}|${mappedRow.valor_pago}|${mappedRow.categoria}|${mappedRow.fornecedor}`;
-
-            if (!uniqueRowsMap.has(key)) {
-                uniqueRowsMap.set(key, mappedRow);
-            }
+            finalRows.push(mappedRow);
         });
-
-        const finalRows = Array.from(uniqueRowsMap.values());
 
         if (finalRows.length === 0) {
             return new Response(JSON.stringify({
@@ -259,15 +275,16 @@ Deno.serve(async (req) => {
             }), { status: 200, headers: corsHeaders });
         }
 
-        // 5. Batch UPSERT
-        const { error: insertError } = await supabase
-            .from('tbl_contas')
-            .upsert(finalRows, {
-                onConflict: 'id_empresa,data_pagamento,valor_pago,categoria,fornecedor',
-                ignoreDuplicates: true
-            });
+        // 5. Batch INSERT (in chunks to avoid payload limits)
+        const BATCH_SIZE = 500;
+        for (let i = 0; i < finalRows.length; i += BATCH_SIZE) {
+            const batch = finalRows.slice(i, i + BATCH_SIZE);
+            const { error: insertError } = await supabase
+                .from('tbl_contas')
+                .insert(batch);
 
-        if (insertError) throw insertError;
+            if (insertError) throw insertError;
+        }
 
         // 6. Update History Status
         if (id_upload) {
