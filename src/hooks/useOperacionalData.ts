@@ -16,10 +16,8 @@ export interface RankingGroup {
 export interface OperacionalData {
   os_nao_entregues: number;
   os_entregues: number;
-  os_vendidas: number;
-  os_nao_vendidas: number;
   total_os: number;
-  faturamento_liquido_os: number;
+  faturamento_bruto_os: number;
   ticket_medio_os: number;
   ranking_vendedores: RankingVendedor[];
   ranking_grupos: RankingGroup[];

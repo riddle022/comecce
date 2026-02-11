@@ -71,12 +71,12 @@ export const OperacionalPage: React.FC = () => {
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <MetricCard
-              title="Faturamento Total (Líquido)"
+              title="Faturamento Bruto OS"
               value={new Intl.NumberFormat('pt-BR', {
                 style: 'currency',
                 currency: 'BRL',
                 minimumFractionDigits: 2
-              }).format(data.faturamento_liquido_os)}
+              }).format(data.faturamento_bruto_os)}
               icon={DollarSign}
               color="green"
             />

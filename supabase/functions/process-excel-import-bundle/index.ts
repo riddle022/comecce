@@ -326,24 +326,30 @@ function parseOrdemServicoExcel(buffer: ArrayBuffer): { ordensServico: OrdemServ
           };
         }
 
-        const item_ds_referencia = normalizeText(getCellValue(row, 'AA'));
-        if (item_ds_referencia) {
+        // Item row: Col AC has Item - Referencia (product reference)
+        // Data rows have Description column absent, so values shift LEFT by 1:
+        //   AC = Referencia, AD = Quantidade, AE = Valor Original, AF = Ajuste,
+        //   AG = Unitário, AH = Total Bruto, AJ = Desconto Total, AK = Total Líquido
+        const item_ds_referencia = normalizeText(getCellValue(row, 'AC'));
+        if (item_ds_referencia && item_ds_referencia !== '---'
+            && !item_ds_referencia.toLowerCase().includes('referencia')
+            && !item_ds_referencia.toLowerCase().includes('referência')) {
           if (!lastHeader) {
-            erros.push({ arquivo: 'Ordem de Serviço', linha, coluna: 'A', descricao: 'Item de OS sem cabeçalho' });
+            erros.push({ arquivo: 'Ordem de Serviço', linha, coluna: 'AC', descricao: 'Item de OS sem cabeçalho' });
             continue;
           }
 
           ordensServico.push({
             ...lastHeader,
             item_ds_referencia,
-            item_ds_descricao: normalizeText(getCellValue(row, 'AB')),
-            item_nr_quantidade: parseInteger(getCellValue(row, 'AC')) || 1,
-            item_vl_original: parseDecimal(getCellValue(row, 'AD')),
-            item_vl_ajuste: parseDecimal(getCellValue(row, 'AE')),
-            item_vl_unitario: parseDecimal(getCellValue(row, 'AF')),
-            item_vl_total_bruto: parseDecimal(getCellValue(row, 'AG')),
-            item_vl_desconto_total: parseDecimal(getCellValue(row, 'AI')),
-            item_vl_total_liquido: parseDecimal(getCellValue(row, 'AJ')),
+            item_ds_descricao: item_ds_referencia,
+            item_nr_quantidade: parseInteger(getCellValue(row, 'AD')) || 1,
+            item_vl_original: parseDecimal(getCellValue(row, 'AE')),
+            item_vl_ajuste: parseDecimal(getCellValue(row, 'AF')),
+            item_vl_unitario: parseDecimal(getCellValue(row, 'AG')),
+            item_vl_total_bruto: parseDecimal(getCellValue(row, 'AH')),
+            item_vl_desconto_total: parseDecimal(getCellValue(row, 'AJ')),
+            item_vl_total_liquido: parseDecimal(getCellValue(row, 'AK')),
             item_ds_grupo: null,
             item_ds_grife: null,
             item_ds_fornecedor: null,

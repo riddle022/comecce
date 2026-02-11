@@ -327,6 +327,7 @@ export async function parseOrdemServicoExcel(file: File): Promise<{ ordensServic
             const row: any = data[i];
             const linha = i + 1;
             try {
+                // 1. Detect OS header row: Col A has numero_os
                 const numero_os = parseInteger(getCellValue(row, 'A'));
                 if (numero_os) {
                     lastHeader = {
@@ -341,24 +342,37 @@ export async function parseOrdemServicoExcel(file: File): Promise<{ ordensServic
                     };
                 }
 
-                const item_ds_referencia = normalizeText(getCellValue(row, 'AA'));
-                if (item_ds_referencia) {
+                // 2. Detect item row: Col AC has Item - Referencia (product reference)
+                // NOTE: Excel data has a column offset — the header row labels AD as "Item - Descricao"
+                // but in data rows the Description column is absent, so values shift LEFT by 1:
+                //   AC = Item - Referencia (text: "Hb Dynamic 1.50 Cr")
+                //   AD = Item - Quantidade (numeric: 1)
+                //   AE = Item - Valor Original
+                //   AF = Item - Valor Ajuste
+                //   AG = Item - Valor Unitário
+                //   AH = Item - Valor Total Bruto
+                //   AJ = Item - Desconto Total
+                //   AK = Item - Valor Total Líquido
+                const item_ds_referencia = normalizeText(getCellValue(row, 'AC'));
+                if (item_ds_referencia && item_ds_referencia !== '---'
+                    && !item_ds_referencia.toLowerCase().includes('referencia')
+                    && !item_ds_referencia.toLowerCase().includes('referência')) {
                     if (!lastHeader) {
-                        erros.push({ arquivo: 'Ordem de Serviço', linha, coluna: 'A', descricao: 'Item de OS sem cabeçalho' });
+                        erros.push({ arquivo: 'Ordem de Serviço', linha, coluna: 'AC', descricao: 'Item de OS sem cabeçalho' });
                         continue;
                     }
 
                     ordensServico.push({
                         ...lastHeader,
                         item_ds_referencia,
-                        item_ds_descricao: normalizeText(getCellValue(row, 'AB')),
-                        item_nr_quantidade: parseInteger(getCellValue(row, 'AC')) || 1,
-                        item_vl_original: parseDecimal(getCellValue(row, 'AD')),
-                        item_vl_ajuste: parseDecimal(getCellValue(row, 'AE')),
-                        item_vl_unitario: parseDecimal(getCellValue(row, 'AF')),
-                        item_vl_total_bruto: parseDecimal(getCellValue(row, 'AG')),
-                        item_vl_desconto_total: parseDecimal(getCellValue(row, 'AI')),
-                        item_vl_total_liquido: parseDecimal(getCellValue(row, 'AJ')),
+                        item_ds_descricao: item_ds_referencia, // Description absent in data, use reference
+                        item_nr_quantidade: parseInteger(getCellValue(row, 'AD')) || 1,
+                        item_vl_original: parseDecimal(getCellValue(row, 'AE')),
+                        item_vl_ajuste: parseDecimal(getCellValue(row, 'AF')),
+                        item_vl_unitario: parseDecimal(getCellValue(row, 'AG')),
+                        item_vl_total_bruto: parseDecimal(getCellValue(row, 'AH')),
+                        item_vl_desconto_total: parseDecimal(getCellValue(row, 'AJ')),
+                        item_vl_total_liquido: parseDecimal(getCellValue(row, 'AK')),
                         item_ds_grupo: null,
                         item_ds_grife: null,
                         item_ds_fornecedor: null,
