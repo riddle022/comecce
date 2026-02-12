@@ -1,8 +1,5 @@
--- Migration: Isolate OS Dashboard from Vendas (v5)
--- All OS dashboard indicators read exclusively from tbl_ordem_servico
--- CRITICAL: All queries filter by status_da_venda = 'vendido' (excludes 'não vendido')
--- KPIs: Entregues / Não Entregues (não entregues = total vendido - entregues)
--- v5: Added vendido filter to ALL queries, fixed não entregues calculation
+-- Migration: OS Dashboard - Faturamento Bruto -> Líquido
+-- Troca faturamento_bruto_os por faturamento_liquido_os usando SUM(item_vl_total_liquido) da tbl_ordem_servico
 
 CREATE OR REPLACE FUNCTION get_operacional_os_summary(
   p_data_inicio date,
@@ -39,10 +36,10 @@ BEGIN
     AND id_empresa = ANY(p_empresa_ids)
     AND LOWER(TRIM(status_da_venda)) = 'vendido';
 
-  -- 2. Não Entregues = total vendido - entregues (314 = 1471 - 1157)
+  -- 2. Não Entregues = total vendido - entregues
   v_os_nao_entregues := v_total_os - v_os_entregues;
 
-  -- 3. Ticket Medio
+  -- 3. Ticket Medio (baseado no faturamento líquido)
   IF v_total_os > 0 THEN
     v_ticket_medio_os := ROUND((v_faturamento_liquido_os / v_total_os)::numeric, 2);
   ELSE
@@ -100,5 +97,3 @@ BEGIN
   RETURN v_result;
 END;
 $$;
-
-GRANT EXECUTE ON FUNCTION get_operacional_os_summary(date, date, uuid[]) TO anon, authenticated;
