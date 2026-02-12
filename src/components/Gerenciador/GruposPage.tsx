@@ -42,12 +42,29 @@ export const GruposPage: React.FC = () => {
     'dashboard',
     'comercial',
     'operacional',
+    'compras',
+    'produtos',
     'financeiro',
     'upload',
+    'historial',
     'usuarios',
     'grupos',
     'empresas'
   ];
+
+  const menuLabels: Record<string, string> = {
+    dashboard: 'Dashboard',
+    comercial: 'Comercial',
+    operacional: 'Operacional',
+    compras: 'Compras',
+    produtos: 'Produtos',
+    financeiro: 'Financeiro',
+    upload: 'Upload',
+    historial: 'Histórico',
+    usuarios: 'Usuários',
+    grupos: 'Grupos',
+    empresas: 'Empresas'
+  };
 
   const handleOpenEdit = (grupo: Grupo) => {
     setEditingGrupo(grupo);
@@ -357,7 +374,7 @@ export const GruposPage: React.FC = () => {
                           : 'bg-[#0F172A] border-[#0F4C5C]/30 text-gray-400 hover:border-[#0F4C5C]/50'
                         }`}
                     >
-                      <span className="text-sm font-medium capitalize">{menu}</span>
+                      <span className="text-sm font-medium">{menuLabels[menu] || menu}</span>
                     </div>
                   ))}
                 </div>
