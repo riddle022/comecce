@@ -67,7 +67,11 @@ serve(async (req) => {
                 ativo: ativo !== undefined ? ativo : true
             })
 
-        if (insertError) throw insertError
+        if (insertError) {
+            // Rollback: remove o usuário do auth para não ficar como órfão
+            await adminClient.auth.admin.deleteUser(authData.user.id)
+            throw insertError
+        }
 
         return new Response(
             JSON.stringify({ userId: authData.user.id, message: 'User created successfully' }),
