@@ -138,7 +138,7 @@ export const ProdutosPage: React.FC = () => {
         if (total === 0) return null;
 
         return (
-            <div className="flex items-center justify-between mt-4 px-1">
+            <div className="flex items-center justify-between mt-4 px-1 pr-16">
                 <p className="text-xs text-gray-500">
                     Mostrando <span className="font-medium text-gray-300">{(page - 1) * limit + 1}</span> a <span className="font-medium text-gray-300">{Math.min(page * limit, total)}</span> de <span className="font-medium text-gray-300">{total}</span> itens
                 </p>
