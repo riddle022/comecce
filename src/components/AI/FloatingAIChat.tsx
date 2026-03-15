@@ -32,7 +32,7 @@ export default function FloatingAIChat() {
       const welcomeMessage: ChatMessageType = {
         id: crypto.randomUUID(),
         role: 'ai',
-        content: 'Olá! Sou seu assistente contábil. Em que posso ajudá-lo hoje?',
+        content: 'Olá! Sou sua assistente financeira Rosangela. Em que posso ajudá-lo hoje?',
         timestamp: new Date()
       };
       setMessages([welcomeMessage]);
@@ -190,7 +190,7 @@ export default function FloatingAIChat() {
                 <Sparkles className="w-5 h-5 text-white" />
               </div>
               <div>
-                <h3 className="text-white font-semibold text-sm">Assistente Contábil</h3>
+                <h3 className="text-white font-semibold text-sm">Assistente Financeira</h3>
                 <div className="flex items-center space-x-1.5">
                   {user ? (
                     <>
