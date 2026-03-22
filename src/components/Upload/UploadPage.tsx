@@ -5,7 +5,7 @@ import { Empresa } from '../../types/database';
 import { enrichOrdemServicoWithProdutos, enrichVendasWithProdutos, ErrorRecord, parseOrdemServicoExcel, parseProdutosExcel, parseVendasExcel } from '../../utils/excelParsers';
 import { CompanyListbox } from '../Dashboard/CompanyListbox';
 
-type FileType = 'vendas' | 'produtos' | 'ordem_servico';
+type FileType = 'vendas' | 'produtos' | 'ordem_servico' | 'resultado_financeiro' | 'relatorio_vendas' | 'produtos_vendidos';
 
 interface FileWithType {
   file: File;
@@ -95,7 +95,7 @@ export const UploadPage: React.FC = () => {
   const [uploading, setUploading] = useState(false);
   const [result, setResult] = useState<ProcessingResult | null>(null);
   const [expandedErrors, setExpandedErrors] = useState<Set<string>>(new Set());
-  const [uploadType, setUploadType] = useState<'operacional' | 'financeiro' | null>(null);
+  const [uploadType, setUploadType] = useState<'operacional' | 'financeiro' | 'fluxo_dre' | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -156,6 +156,12 @@ export const UploadPage: React.FC = () => {
 
     if (uploadType === 'financeiro') {
       setFiles([{ file: validFiles[0], type: 'financeiro' as any }]);
+    } else if (uploadType === 'fluxo_dre') {
+      const newFiles = validFiles.slice(0, 3 - files.length).map(file => ({
+        file,
+        type: null as FileType | null
+      }));
+      setFiles(prev => [...prev, ...newFiles].slice(0, 3));
     } else {
       const newFiles = validFiles.slice(0, 3 - files.length).map(file => ({
         file,
@@ -200,12 +206,20 @@ export const UploadPage: React.FC = () => {
     const labels: Record<FileType, string> = {
       vendas: 'Vendas',
       produtos: 'Produtos',
-      ordem_servico: 'Ordem de Serviço'
+      ordem_servico: 'Ordem de Serviço',
+      resultado_financeiro: 'Resultado Financeiro',
+      relatorio_vendas: 'Relatório de Vendas',
+      produtos_vendidos: 'Produtos Vendidos',
     };
     return labels[type];
   };
 
   const getAvailableTypes = (currentType: FileType | null): FileType[] => {
+    if (uploadType === 'fluxo_dre') {
+      const allTypes: FileType[] = ['resultado_financeiro', 'relatorio_vendas', 'produtos_vendidos'];
+      const usedTypes = files.filter(f => f.type !== currentType).map(f => f.type);
+      return allTypes.filter(type => !usedTypes.includes(type));
+    }
     const allTypes: FileType[] = ['vendas', 'produtos', 'ordem_servico'];
     const usedTypes = files.filter(f => f.type !== currentType).map(f => f.type);
     return allTypes.filter(type => !usedTypes.includes(type));
@@ -213,6 +227,11 @@ export const UploadPage: React.FC = () => {
 
   const areAllFilesReady = (): boolean => {
     if (uploadType === 'financeiro') return files.length === 1;
+    if (uploadType === 'fluxo_dre') {
+      if (files.length !== 3) return false;
+      const types = files.map(f => f.type);
+      return types.includes('resultado_financeiro') && types.includes('relatorio_vendas') && types.includes('produtos_vendidos');
+    }
     if (files.length !== 3) return false;
     const types = files.map(f => f.type);
     return types.includes('vendas') && types.includes('produtos') && types.includes('ordem_servico');
@@ -298,6 +317,51 @@ export const UploadPage: React.FC = () => {
           erros: [],
           message: 'Importação concluída com sucesso (Frontend Parsing)'
         });
+        setFiles([]);
+
+      } else if (uploadType === 'fluxo_dre') {
+        // ---------------------------------------------------------
+        // FLUXO DE CAIXA + DRE: Edge Function process-upload-financeiro
+        // ---------------------------------------------------------
+        const financeiroFile  = files.find(f => f.type === 'resultado_financeiro')?.file;
+        const vendasDREFile   = files.find(f => f.type === 'relatorio_vendas')?.file;
+        const produtosDREFile = files.find(f => f.type === 'produtos_vendidos')?.file;
+
+        if (!financeiroFile || !vendasDREFile || !produtosDREFile) throw new Error('Arquivos faltando');
+
+        const body = new FormData();
+        body.append('id_empresa', empresa.id_empresa);
+        body.append('resultado_financeiro', financeiroFile);
+        body.append('relatorio_vendas', vendasDREFile);
+        body.append('produtos_vendidos', produtosDREFile);
+
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) throw new Error('Sessão não encontrada');
+
+        const response = await fetch(
+          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/process-upload-financeiro`,
+          {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${session.access_token}` },
+            body
+          }
+        );
+
+        const resultData = await response.json();
+
+        if (!response.ok || resultData.status === 'falha') {
+          throw new Error(resultData.message || `Erro no servidor: ${response.status}`);
+        }
+
+        setResult({
+          status: 'sucesso',
+          total_vendas: resultData.totais?.fluxo_caixa ?? 0,
+          total_produtos: resultData.totais?.dre ?? 0,
+          total_ordens_servico: 0,
+          erros: [],
+          message: `Upload ID: ${resultData.id_upload}`,
+          ...(resultData as any)
+        } as any);
         setFiles([]);
 
       } else {
@@ -430,7 +494,7 @@ export const UploadPage: React.FC = () => {
 
       <div className="space-y-3 mb-8 max-w-2xl">
         <h3 className="text-[10px] font-bold text-slate-500 uppercase tracking-widest pl-1">Tipo de Upload</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           {[
             {
               id: 'operacional',
@@ -444,6 +508,13 @@ export const UploadPage: React.FC = () => {
               title: 'Contas a Pagar',
               subtitle: 'Gestão financeira',
               icon: Building2,
+              color: 'emerald'
+            },
+            {
+              id: 'fluxo_dre',
+              title: 'Fluxo de Caixa + DRE',
+              subtitle: 'Resultado, Vendas e Produtos',
+              icon: FileSpreadsheet,
               color: 'emerald'
             },
           ].map((type) => (
@@ -489,16 +560,16 @@ export const UploadPage: React.FC = () => {
       <div
         className={`relative overflow-hidden bg-white/[0.01] border border-dashed rounded-2xl transition-all duration-500 group/drop ${empresaSelecionada.length === 0 || !uploadType
           ? 'border-white/5 opacity-50 cursor-not-allowed scale-[0.99]'
-          : (uploadType === 'operacional' ? files.length >= 3 : files.length >= 1)
+          : (uploadType === 'operacional' || uploadType === 'fluxo_dre' ? files.length >= 3 : files.length >= 1)
             ? 'border-emerald-500/20 bg-emerald-500/5'
             : dragging
               ? 'border-indigo-500/50 bg-indigo-500/10'
               : 'border-white/10 hover:border-indigo-500/30 hover:bg-white/[0.02]'
           }`}
-        onDragEnter={empresaSelecionada.length > 0 && uploadType && (uploadType === 'operacional' ? files.length < 3 : files.length < 1) ? handleDrag : undefined}
-        onDragLeave={empresaSelecionada.length > 0 && uploadType && (uploadType === 'operacional' ? files.length < 3 : files.length < 1) ? handleDrag : undefined}
-        onDragOver={empresaSelecionada.length > 0 && uploadType && (uploadType === 'operacional' ? files.length < 3 : files.length < 1) ? handleDrag : undefined}
-        onDrop={empresaSelecionada.length > 0 && uploadType && (uploadType === 'operacional' ? files.length < 3 : files.length < 1) ? handleDrop : undefined}
+        onDragEnter={empresaSelecionada.length > 0 && uploadType && ((uploadType === 'operacional' || uploadType === 'fluxo_dre') ? files.length < 3 : files.length < 1) ? handleDrag : undefined}
+        onDragLeave={empresaSelecionada.length > 0 && uploadType && ((uploadType === 'operacional' || uploadType === 'fluxo_dre') ? files.length < 3 : files.length < 1) ? handleDrag : undefined}
+        onDragOver={empresaSelecionada.length > 0 && uploadType && ((uploadType === 'operacional' || uploadType === 'fluxo_dre') ? files.length < 3 : files.length < 1) ? handleDrag : undefined}
+        onDrop={empresaSelecionada.length > 0 && uploadType && ((uploadType === 'operacional' || uploadType === 'fluxo_dre') ? files.length < 3 : files.length < 1) ? handleDrop : undefined}
       >
         {/* Variante COMPACTA cuando los archivos están listos O hay resultados */}
         {areAllFilesReady() || result !== null ? (
@@ -553,7 +624,9 @@ export const UploadPage: React.FC = () => {
                     <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">
                       {uploadType === 'operacional'
                         ? (files.length === 0 ? '3 arquivos Excel obrigatórios (Vendas, Produtos, OS)' : `Arquivo(s) adicionado(s): ${files.length}/3`)
-                        : 'Arquivo Excel de Contas a Pagar'}
+                        : uploadType === 'fluxo_dre'
+                          ? (files.length === 0 ? '3 arquivos Excel (Resultado, Vendas, Produtos)' : `Arquivo(s) adicionado(s): ${files.length}/3`)
+                          : 'Arquivo Excel de Contas a Pagar'}
                     </p>
                   </div>
                   <button
@@ -567,7 +640,7 @@ export const UploadPage: React.FC = () => {
               <input
                 ref={fileInputRef}
                 type="file"
-                multiple={uploadType === 'operacional'}
+                multiple={uploadType === 'operacional' || uploadType === 'fluxo_dre'}
                 accept=".xls,.xlsx"
                 onChange={handleFileSelect}
                 className="hidden"
@@ -581,7 +654,7 @@ export const UploadPage: React.FC = () => {
               </span>
               <span className="flex items-center space-x-1.5">
                 <div className="w-1 h-1 rounded-full bg-slate-800" />
-                <span>{uploadType === 'operacional' ? 'Bundle de 3' : 'Arquivo único'}</span>
+                <span>{uploadType === 'operacional' || uploadType === 'fluxo_dre' ? 'Bundle de 3' : 'Arquivo único'}</span>
               </span>
             </div>
           </div>
@@ -616,7 +689,7 @@ export const UploadPage: React.FC = () => {
                     </button>
                   </div>
 
-                  {uploadType === 'operacional' ? (
+                  {uploadType === 'operacional' || uploadType === 'fluxo_dre' ? (
                     <FileTypeSelector
                       value={fileWithType.type}
                       onChange={(val) => updateFileType(index, val)}
@@ -627,7 +700,7 @@ export const UploadPage: React.FC = () => {
                     />
                   ) : (
                     <div className="text-[10px] font-bold text-indigo-400/80 bg-indigo-500/5 px-2 py-1 rounded border border-indigo-500/10 uppercase tracking-widest text-center">
-                      Cuentas a Pagar
+                      Contas a Pagar
                     </div>
                   )}
 
@@ -642,7 +715,9 @@ export const UploadPage: React.FC = () => {
               <p className="text-[10px] text-slate-400 font-medium">
                 {uploadType === 'operacional'
                   ? (files.length < 3 ? `Adicione mais ${3 - files.length} arquivo(s) para completar o bundle.` : 'Selecione o tipo para cada arquivo.')
-                  : (files.length === 0 ? 'Adicione o arquivo de contas para processar.' : 'Aguardando processamento.')}
+                  : uploadType === 'fluxo_dre'
+                    ? (files.length < 3 ? `Adicione mais ${3 - files.length} arquivo(s).` : 'Selecione o tipo para cada arquivo.')
+                    : (files.length === 0 ? 'Adicione o arquivo de contas para processar.' : 'Aguardando processamento.')}
               </p>
             </div>
           ) : (
@@ -684,9 +759,17 @@ export const UploadPage: React.FC = () => {
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 relative z-10">
             {uploadType === 'operacional' ? [
-              { label: 'Vendas Importadas', value: result.total_vendas, color: 'emerald' },
-              { label: 'Produtos Processados', value: result.total_produtos, color: 'emerald' },
-              { label: 'Ordens de Serviço', value: result.total_ordens_servico, color: 'emerald' }
+              { label: 'Vendas Importadas', value: result.total_vendas },
+              { label: 'Produtos Processados', value: result.total_produtos },
+              { label: 'Ordens de Serviço', value: result.total_ordens_servico }
+            ].map((stat, i) => (
+              <div key={i} className="bg-white/[0.03] border border-white/5 rounded-2xl p-5 hover:bg-white/[0.05] transition-all">
+                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">{stat.label}</p>
+                <p className="text-3xl font-black text-white tracking-tighter">{stat.value}</p>
+              </div>
+            )) : uploadType === 'fluxo_dre' ? [
+              { label: 'Lançamentos Fluxo de Caixa', value: (result as any).totais?.fluxo_caixa ?? result.total_vendas },
+              { label: 'Lançamentos DRE', value: (result as any).totais?.dre ?? result.total_produtos },
             ].map((stat, i) => (
               <div key={i} className="bg-white/[0.03] border border-white/5 rounded-2xl p-5 hover:bg-white/[0.05] transition-all">
                 <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">{stat.label}</p>

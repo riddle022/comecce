@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//c/Users/Junior/Desktop/v-a-n-u-s-a/icmsciap/**)"
+    ],
+    "additionalDirectories": [
+      "c:\\Users\\Junior\\Desktop\\v-a-n-u-s-a\\icmsciap"
+    ]
+  }
+}
