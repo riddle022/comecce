@@ -26,3 +26,5 @@ export interface LinhaRelatorio {
   expandido?:   boolean;
   filhos?:      LinhaRelatorio[];
 }
+
+export type ViewMode = 'compact' | 'analytic';

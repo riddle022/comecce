@@ -1,7 +1,9 @@
 {
   "permissions": {
     "allow": [
-      "Read(//c/Users/Junior/Desktop/v-a-n-u-s-a/icmsciap/**)"
+      "Read(//c/Users/Junior/Desktop/v-a-n-u-s-a/icmsciap/**)",
+      "Bash(npx tsc:*)",
+      "Bash(npm run:*)"
     ],
     "additionalDirectories": [
       "c:\\Users\\Junior\\Desktop\\v-a-n-u-s-a\\icmsciap"
