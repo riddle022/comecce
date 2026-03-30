@@ -5,6 +5,8 @@ import { Dashboard } from './components/Dashboard/Dashboard';
 import { EmpresasPage } from './components/Gerenciador/EmpresasPage';
 import { GruposPage } from './components/Gerenciador/GruposPage';
 import { UsuariosPage } from './components/Gerenciador/UsuariosPage';
+import { DrePage } from './components/DrePage';
+import { FluxoCaixaPage } from './components/FluxoCaixaPage';
 import { ComercialPage } from './components/Indicadores/ComercialPage';
 import { ComprasPage } from './components/Indicadores/ComprasPage';
 import { FinanceiroPage } from './components/Indicadores/FinanceiroPage';
@@ -25,7 +27,9 @@ const menuTitles: Record<string, string> = {
   operacional: 'Indicadores de Ordem de Serviço',
   compras: 'Indicadores de Compras',
   produtos: 'Indicadores de Produtos',
-  financeiro: 'Indicadores Financeiros',
+  financeiro:  'Indicadores Financeiros',
+  fluxo_caixa: 'Fluxo de Caixa',
+  dre:         'DRE — Demonstração do Resultado',
   upload: 'Upload de Arquivos',
   historial: 'Histórico de Uploads',
   usuarios: 'Gestão de Usuários',
@@ -46,7 +50,7 @@ const AppContent: React.FC = () => {
   }, [canViewMenu]);
 
   const getDefaultMenu = React.useCallback((): string => {
-    const allMenus = ['dashboard', 'comercial', 'operacional', 'compras', 'produtos', 'financeiro', 'upload', 'historial', 'usuarios', 'grupos', 'empresas'];
+    const allMenus = ['dashboard', 'comercial', 'operacional', 'compras', 'produtos', 'financeiro', 'fluxo_caixa', 'dre', 'upload', 'historial', 'usuarios', 'grupos', 'empresas'];
     for (const menu of allMenus) {
       if (hasPermission(menu)) {
         return menu;
@@ -107,6 +111,10 @@ const AppContent: React.FC = () => {
         return <ProdutosPage />; // Added case
       case 'financeiro':
         return <FinanceiroPage />;
+      case 'fluxo_caixa':
+        return <FluxoCaixaPage />;
+      case 'dre':
+        return <DrePage />;
       case 'upload':
         return <UploadPage />;
       case 'historial':

@@ -1,4 +1,5 @@
 import {
+  BarChart2,
   Building2,
   ChevronDown,
   ChevronRight,
@@ -31,7 +32,9 @@ const menuItems = [
   { id: 'operacional', label: 'Ordem de Serviço', icon: Package },
   { id: 'compras', label: 'Compras', icon: ShoppingCart },
   { id: 'produtos', label: 'Produtos', icon: ShoppingBag },
-  { id: 'financeiro', label: 'Financeiro', icon: DollarSign },
+  { id: 'financeiro',  label: 'Financeiro',    icon: DollarSign },
+  { id: 'fluxo_caixa', label: 'Fluxo de Caixa', icon: TrendingUp },
+  { id: 'dre',         label: 'DRE',             icon: BarChart2  },
   { id: 'upload', label: 'Upload', icon: Upload },
   { id: 'historial', label: 'Histórico', icon: History },
 ];
