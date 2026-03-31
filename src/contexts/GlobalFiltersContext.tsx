@@ -1,10 +1,15 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 
+export type FilterMode = 'competencia' | 'periodo';
+
 interface GlobalFilters {
   dataInicio: string;
   dataFim: string;
   empresaIds: string[];
+  competenciaMes: number; // 0-11
+  competenciaAno: number;
+  filterMode: FilterMode;
 }
 
 interface GlobalFiltersContextType {
@@ -13,6 +18,8 @@ interface GlobalFiltersContextType {
   setGlobalMode: (enabled: boolean) => void;
   updateFilters: (filters: Partial<GlobalFilters>) => void;
   resetFilters: () => void;
+  setCompetencia: (mes: number, ano: number) => void;
+  setFilterMode: (mode: FilterMode) => void;
 }
 
 const GlobalFiltersContext = createContext<GlobalFiltersContextType | undefined>(undefined);
@@ -20,14 +27,28 @@ const GlobalFiltersContext = createContext<GlobalFiltersContextType | undefined>
 const STORAGE_KEY = 'global-filters';
 const MODE_STORAGE_KEY = 'global-filters-mode';
 
-const getDefaultFilters = (): GlobalFilters => {
-  const hoje = new Date();
-  const primeiroDia = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
-  const ultimoDia = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0);
+/** Calcula dataInicio e dataFim a partir de mês (0-11) e ano */
+const competenciaToDateRange = (mes: number, ano: number) => {
+  const primeiroDia = new Date(ano, mes, 1);
+  const ultimoDia = new Date(ano, mes + 1, 0);
   return {
     dataInicio: primeiroDia.toISOString().split('T')[0],
     dataFim: ultimoDia.toISOString().split('T')[0],
-    empresaIds: []
+  };
+};
+
+const getDefaultFilters = (): GlobalFilters => {
+  const hoje = new Date();
+  const mes = hoje.getMonth();
+  const ano = hoje.getFullYear();
+  const { dataInicio, dataFim } = competenciaToDateRange(mes, ano);
+  return {
+    dataInicio,
+    dataFim,
+    empresaIds: [],
+    competenciaMes: mes,
+    competenciaAno: ano,
+    filterMode: 'competencia',
   };
 };
 
@@ -39,7 +60,18 @@ export const GlobalFiltersProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const [filters, setFilters] = useState<GlobalFilters>(() => {
     const stored = localStorage.getItem(STORAGE_KEY);
-    return stored ? JSON.parse(stored) : getDefaultFilters();
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      // Migração: se não tem os campos novos, adiciona defaults
+      if (parsed.competenciaMes === undefined) {
+        const hoje = new Date();
+        parsed.competenciaMes = hoje.getMonth();
+        parsed.competenciaAno = hoje.getFullYear();
+        parsed.filterMode = 'competencia';
+      }
+      return parsed;
+    }
+    return getDefaultFilters();
   });
 
   useEffect(() => {
@@ -95,6 +127,29 @@ export const GlobalFiltersProvider: React.FC<{ children: React.ReactNode }> = ({
     setFilters(getDefaultFilters());
   }, []);
 
+  /** Atualiza competência e recalcula dataInicio/dataFim automaticamente */
+  const setCompetencia = useCallback((mes: number, ano: number) => {
+    const { dataInicio, dataFim } = competenciaToDateRange(mes, ano);
+    setFilters(prev => ({
+      ...prev,
+      competenciaMes: mes,
+      competenciaAno: ano,
+      dataInicio,
+      dataFim,
+    }));
+  }, []);
+
+  const setFilterMode = useCallback((mode: FilterMode) => {
+    setFilters(prev => {
+      if (mode === 'competencia') {
+        // Ao voltar para competência, recalcula as datas a partir da competência atual
+        const { dataInicio, dataFim } = competenciaToDateRange(prev.competenciaMes, prev.competenciaAno);
+        return { ...prev, filterMode: mode, dataInicio, dataFim };
+      }
+      return { ...prev, filterMode: mode };
+    });
+  }, []);
+
   return (
     <GlobalFiltersContext.Provider
       value={{
@@ -102,7 +157,9 @@ export const GlobalFiltersProvider: React.FC<{ children: React.ReactNode }> = ({
         isGlobalMode,
         setGlobalMode,
         updateFilters,
-        resetFilters
+        resetFilters,
+        setCompetencia,
+        setFilterMode,
       }}
     >
       {children}
