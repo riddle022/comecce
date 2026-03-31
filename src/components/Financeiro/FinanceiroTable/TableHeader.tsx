@@ -39,7 +39,7 @@ export const TableHeader: React.FC<TableHeaderProps> = ({ meses, mesLabels, view
               {isAnalytic ? 'Valor' : (mesLabels[mes] ?? mes)}
             </th>
             {isAnalytic && (
-              <th className="px-3 py-2 text-right font-semibold text-slate-600 whitespace-nowrap">%AV</th>
+              <th className="px-3 py-2 text-center font-semibold text-slate-600 whitespace-nowrap">%AV</th>
             )}
           </React.Fragment>
         ))}
@@ -47,7 +47,7 @@ export const TableHeader: React.FC<TableHeaderProps> = ({ meses, mesLabels, view
           {isAnalytic ? 'Valor' : 'Total'}
         </th>
         {isAnalytic && (
-          <th className="px-3 py-2 text-right font-semibold text-slate-600 whitespace-nowrap">%AV</th>
+          <th className="px-3 py-2 text-center font-semibold text-slate-600 whitespace-nowrap">%AV</th>
         )}
       </tr>
     </thead>
