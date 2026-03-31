@@ -8,6 +8,7 @@ import {
   Tooltip,
   XAxis,
   YAxis,
+  LabelList,
 } from 'recharts';
 import { LinhaRelatorio } from '../../types/financeiro';
 import { ChartTooltip } from '../Financeiro/ChartTooltip';
@@ -39,18 +40,66 @@ export const DreChart: React.FC<DreChartProps> = ({ linhas, meses, mesLabels }) 
   });
 
   return (
-    <div className="bg-slate-900/40 border border-white/5 rounded-xl p-4">
-      <h3 className="text-sm font-bold text-white mb-4 tracking-tight">Composição Mensal</h3>
-      <ResponsiveContainer width="100%" height={240}>
-        <BarChart data={chartData} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="#1E293B" />
-          <XAxis dataKey="mes" tick={{ fill: '#64748B', fontSize: 10 }} />
-          <YAxis tick={{ fill: '#64748B', fontSize: 10 }} tickFormatter={fmtCompact} />
-          <Tooltip content={<ChartTooltip formatter={fmtBRL} />} />
-          <Legend wrapperStyle={{ fontSize: 11, color: '#64748B' }} />
-          <Bar dataKey="Receita Bruta" fill="#0EA5E9" radius={[3, 3, 0, 0]} />
-          <Bar dataKey="Custos Totais" fill="#F97316" radius={[3, 3, 0, 0]} />
-          <Bar dataKey="Resultado Líquido" fill="#22C55E" radius={[3, 3, 0, 0]} />
+    <div className="bg-gradient-to-br from-slate-900/60 to-slate-900/20 border border-slate-700/50 rounded-2xl p-6 shadow-2xl backdrop-blur-md">
+      <div className="flex items-center justify-between mb-6">
+        <h3 className="text-lg font-bold text-white tracking-tight flex items-center gap-3">
+          <div className="w-1.5 h-6 bg-blue-500 rounded-full shadow-[0_0_10px_rgba(59,130,246,0.6)]"></div>
+          Composição Mensal
+        </h3>
+      </div>
+      
+      <ResponsiveContainer width="100%" height={380}>
+        <BarChart data={chartData} margin={{ top: 30, right: 10, left: 10, bottom: 20 }}>
+          <defs>
+            <linearGradient id="colorReceita" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#3b82f6" stopOpacity={1} />
+              <stop offset="100%" stopColor="#1d4ed8" stopOpacity={0.8} />
+            </linearGradient>
+            <linearGradient id="colorCustos" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#f97316" stopOpacity={1} />
+              <stop offset="100%" stopColor="#c2410c" stopOpacity={0.8} />
+            </linearGradient>
+            <linearGradient id="colorResultado" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#10b981" stopOpacity={1} />
+              <stop offset="100%" stopColor="#047857" stopOpacity={0.8} />
+            </linearGradient>
+          </defs>
+          <CartesianGrid strokeDasharray="3 3" stroke="#1E293B" vertical={false} />
+          
+          <XAxis 
+            dataKey="mes" 
+            tick={{ fill: '#94A3B8', fontSize: 12, fontWeight: 500 }} 
+            axisLine={false} 
+            tickLine={false} 
+            dy={10} 
+          />
+          <YAxis 
+            tick={{ fill: '#64748B', fontSize: 11 }} 
+            tickFormatter={fmtCompact} 
+            axisLine={false} 
+            tickLine={false} 
+            dx={-10} 
+          />
+          
+          <Tooltip 
+            content={<ChartTooltip formatter={fmtBRL} />} 
+            cursor={{ fill: '#334155', opacity: 0.2 }}
+          />
+          
+          <Legend 
+            wrapperStyle={{ fontSize: 13, fontWeight: 500, color: '#E2E8F0', paddingTop: '20px' }} 
+            iconType="circle" 
+          />
+          
+          <Bar dataKey="Receita Bruta" fill="url(#colorReceita)" radius={[6, 6, 0, 0]} maxBarSize={60}>
+            <LabelList dataKey="Receita Bruta" position="top" formatter={(val: any) => fmtCompact(Number(val) || 0)} fill="#94A3B8" fontSize={11} fontWeight={600} offset={8} />
+          </Bar>
+          <Bar dataKey="Custos Totais" fill="url(#colorCustos)" radius={[6, 6, 0, 0]} maxBarSize={60}>
+            <LabelList dataKey="Custos Totais" position="top" formatter={(val: any) => fmtCompact(Number(val) || 0)} fill="#94A3B8" fontSize={11} fontWeight={600} offset={8} />
+          </Bar>
+          <Bar dataKey="Resultado Líquido" fill="url(#colorResultado)" radius={[6, 6, 0, 0]} maxBarSize={60}>
+            <LabelList dataKey="Resultado Líquido" position="top" formatter={(val: any) => fmtCompact(Number(val) || 0)} fill="#94A3B8" fontSize={11} fontWeight={600} offset={8} />
+          </Bar>
         </BarChart>
       </ResponsiveContainer>
     </div>
