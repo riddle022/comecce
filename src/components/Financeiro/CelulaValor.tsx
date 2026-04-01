@@ -35,12 +35,12 @@ export const CelulaValor: React.FC<CelulaValorProps> = ({ linha, value, isPct, f
   }
 
   const isNegative = value < 0;
-  const absValStr = Intl.NumberFormat('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(Math.abs(value));
+  const absValStr = Intl.NumberFormat('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Math.abs(value));
 
   return (
     <td className={`px-3 py-2 tabular-nums font-mono min-w-[110px] ${fontSize} ${valueColor(linha.tipo, value)}`}>
       <div className="flex justify-between items-center w-full gap-2">
-        <span className="text-[10px] text-slate-500/70 font-sans tracking-wide shrink-0">
+        <span className="text-[10px] text-white font-sans tracking-wide shrink-0">
           {isNegative ? '-R$' : 'R$'}
         </span>
         <span className="text-right truncate">{absValStr}</span>

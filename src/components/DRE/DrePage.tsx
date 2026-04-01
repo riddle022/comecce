@@ -5,6 +5,7 @@ import { useViewMode } from '../../hooks/useViewMode';
 import { LinhaRelatorio } from '../../types/financeiro';
 import { buildRelatorio } from '../../utils/buildRelatorio';
 import { FilterPanel } from '../Common/FilterPanel';
+import { translateMonth } from '../Financeiro/formatters';
 import { FinanceiroTable } from '../Financeiro/FinanceiroTable/FinanceiroTable';
 import { DreChart } from './DreChart';
 import { DreKpis } from './DreKpis';
@@ -56,7 +57,7 @@ export const DrePage: React.FC = () => {
 
   const mesLabels = useMemo(() =>
     dadosMensais.reduce<Record<string, string>>((acc, d) => {
-      acc[d.ano_mes] = d.mes_label;
+      acc[d.ano_mes] = translateMonth(d.mes_label);
       return acc;
     }, {}),
     [dadosMensais]
