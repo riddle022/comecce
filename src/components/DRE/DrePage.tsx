@@ -12,18 +12,12 @@ import { DreKpis } from './DreKpis';
 import { useDreKpis } from './useDreKpis';
 
 export const DrePage: React.FC = () => {
-  const { filters } = useGlobalFilters();
-
-  const [dateRange, setDateRange] = useState({
-    dataInicio: filters.dataInicio,
-    dataFim: filters.dataFim,
-  });
-  const [empresaIds, setEmpresaIds] = useState<string[]>(filters.empresaIds);
+  const { filters, updateFilters } = useGlobalFilters();
 
   const { dadosMensais, dadosDiarios, isLoading, error, buscarDiario } = useDreData({
-    dataInicio: dateRange.dataInicio,
-    dataFim: dateRange.dataFim,
-    empresaIds,
+    dataInicio: filters.dataInicio,
+    dataFim: filters.dataFim,
+    empresaIds: filters.empresaIds,
   });
 
   const [linhas, setLinhas] = useState<LinhaRelatorio[]>([]);
@@ -68,9 +62,10 @@ export const DrePage: React.FC = () => {
   return (
     <div className="space-y-4">
       <FilterPanel
-        onDateRangeChange={r => setDateRange({ dataInicio: r.dataInicio, dataFim: r.dataFim })}
-        onEmpresasChange={setEmpresaIds}
-        initialDateRange={dateRange}
+        onDateRangeChange={r => updateFilters({ dataInicio: r.dataInicio, dataFim: r.dataFim })}
+        onEmpresasChange={ids => updateFilters({ empresaIds: ids })}
+        initialDateRange={{ dataInicio: filters.dataInicio, dataFim: filters.dataFim }}
+        initialEmpresas={filters.empresaIds}
       />
 
       <DreKpis kpis={kpis} />

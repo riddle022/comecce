@@ -14,8 +14,6 @@ interface GlobalFilters {
 
 interface GlobalFiltersContextType {
   filters: GlobalFilters;
-  isGlobalMode: boolean;
-  setGlobalMode: (enabled: boolean) => void;
   updateFilters: (filters: Partial<GlobalFilters>) => void;
   resetFilters: () => void;
   setCompetencia: (mes: number, ano: number) => void;
@@ -25,7 +23,6 @@ interface GlobalFiltersContextType {
 const GlobalFiltersContext = createContext<GlobalFiltersContextType | undefined>(undefined);
 
 const STORAGE_KEY = 'global-filters';
-const MODE_STORAGE_KEY = 'global-filters-mode';
 
 /** Calcula dataInicio e dataFim a partir de mês (0-11) e ano */
 const competenciaToDateRange = (mes: number, ano: number) => {
@@ -53,36 +50,38 @@ const getDefaultFilters = (): GlobalFilters => {
 };
 
 export const GlobalFiltersProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [isGlobalMode, setIsGlobalModeState] = useState<boolean>(() => {
-    const stored = localStorage.getItem(MODE_STORAGE_KEY);
-    return stored ? JSON.parse(stored) : false;
-  });
-
   const [filters, setFilters] = useState<GlobalFilters>(() => {
     const stored = localStorage.getItem(STORAGE_KEY);
     if (stored) {
-      const parsed = JSON.parse(stored);
-      // Migração: se não tem os campos novos, adiciona defaults
-      if (parsed.competenciaMes === undefined) {
-        const hoje = new Date();
-        parsed.competenciaMes = hoje.getMonth();
-        parsed.competenciaAno = hoje.getFullYear();
-        parsed.filterMode = 'competencia';
+      try {
+        const parsed = JSON.parse(stored);
+        // Migração: se não tem os campos novos, adiciona defaults
+        if (parsed.competenciaMes === undefined) {
+          const hoje = new Date();
+          parsed.competenciaMes = hoje.getMonth();
+          parsed.competenciaAno = hoje.getFullYear();
+          parsed.filterMode = 'competencia';
+        }
+        // Retorna os filtros sem campos legados
+        return {
+          dataInicio: parsed.dataInicio,
+          dataFim: parsed.dataFim,
+          empresaIds: parsed.empresaIds || [],
+          competenciaMes: parsed.competenciaMes,
+          competenciaAno: parsed.competenciaAno,
+          filterMode: parsed.filterMode || 'competencia',
+        };
+      } catch (e) {
+        console.error('Erro ao restaurar filtros do cache:', e);
       }
-      return parsed;
     }
     return getDefaultFilters();
   });
 
   useEffect(() => {
-    localStorage.setItem(MODE_STORAGE_KEY, JSON.stringify(isGlobalMode));
-  }, [isGlobalMode]);
-
-  useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'SIGNED_OUT') {
         setFilters(getDefaultFilters());
-        setIsGlobalModeState(false);
       } else if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION') {
         const userId = session?.user?.id;
         const storedFilters = localStorage.getItem(STORAGE_KEY);
@@ -91,7 +90,6 @@ export const GlobalFiltersProvider: React.FC<{ children: React.ReactNode }> = ({
             const parsed = JSON.parse(storedFilters);
             if (parsed.userId && parsed.userId !== userId) {
               setFilters(getDefaultFilters());
-              setIsGlobalModeState(false);
             }
           } catch (e) {
             console.error('Erro ao validar filtros do cache:', e);
@@ -114,10 +112,6 @@ export const GlobalFiltersProvider: React.FC<{ children: React.ReactNode }> = ({
     };
     saveFilters();
   }, [filters]);
-
-  const setGlobalMode = useCallback((enabled: boolean) => {
-    setIsGlobalModeState(enabled);
-  }, []);
 
   const updateFilters = useCallback((newFilters: Partial<GlobalFilters>) => {
     setFilters(prev => ({ ...prev, ...newFilters }));
@@ -154,8 +148,6 @@ export const GlobalFiltersProvider: React.FC<{ children: React.ReactNode }> = ({
     <GlobalFiltersContext.Provider
       value={{
         filters,
-        isGlobalMode,
-        setGlobalMode,
         updateFilters,
         resetFilters,
         setCompetencia,

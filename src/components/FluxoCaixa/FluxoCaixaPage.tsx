@@ -12,18 +12,12 @@ import { FluxoCaixaKpis } from './FluxoCaixaKpis';
 import { useFluxoCaixaKpis } from './useFluxoCaixaKpis';
 
 export const FluxoCaixaPage: React.FC = () => {
-  const { filters } = useGlobalFilters();
-
-  const [dateRange, setDateRange] = useState({
-    dataInicio: filters.dataInicio,
-    dataFim: filters.dataFim,
-  });
-  const [empresaIds, setEmpresaIds] = useState<string[]>(filters.empresaIds);
+  const { filters, updateFilters } = useGlobalFilters();
 
   const { dadosMensais, dadosDiarios, isLoading, error, buscarDiario } = useFluxoCaixaData({
-    dataInicio: dateRange.dataInicio,
-    dataFim: dateRange.dataFim,
-    empresaIds,
+    dataInicio: filters.dataInicio,
+    dataFim: filters.dataFim,
+    empresaIds: filters.empresaIds,
   });
 
   const [linhas, setLinhas] = useState<LinhaRelatorio[]>([]);
@@ -68,9 +62,10 @@ export const FluxoCaixaPage: React.FC = () => {
   return (
     <div className="space-y-4">
       <FilterPanel
-        onDateRangeChange={r => setDateRange({ dataInicio: r.dataInicio, dataFim: r.dataFim })}
-        onEmpresasChange={setEmpresaIds}
-        initialDateRange={dateRange}
+        onDateRangeChange={r => updateFilters({ dataInicio: r.dataInicio, dataFim: r.dataFim })}
+        onEmpresasChange={ids => updateFilters({ empresaIds: ids })}
+        initialDateRange={{ dataInicio: filters.dataInicio, dataFim: filters.dataFim }}
+        initialEmpresas={filters.empresaIds}
       />
 
       <FluxoCaixaKpis kpis={kpis} pontoEquilibrio={pontoEquilibrio} />

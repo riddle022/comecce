@@ -1,5 +1,5 @@
-import React, { useState, useMemo } from 'react';
-import { Calendar, CalendarDays, Link2, ChevronLeft, ChevronRight } from 'lucide-react';
+import React, { useMemo } from 'react';
+import { Calendar, CalendarDays, ChevronLeft, ChevronRight } from 'lucide-react';
 import { CompanyListbox } from '../Dashboard/CompanyListbox';
 import { usePermissions } from '../../hooks/usePermissions';
 import { useGlobalFilters, FilterMode } from '../../contexts/GlobalFiltersContext';
@@ -26,57 +26,28 @@ interface FilterPanelProps {
 export const FilterPanel: React.FC<FilterPanelProps> = ({
   onDateRangeChange,
   onEmpresasChange,
-  initialDateRange,
-  initialEmpresas,
   showDateRange = true,
   showEmpresas = true,
 }) => {
   const { getEmpresas } = usePermissions();
   const {
     filters: globalFilters,
-    isGlobalMode,
-    setGlobalMode,
     updateFilters,
     setCompetencia,
     setFilterMode,
   } = useGlobalFilters();
 
-  const getDefaultDateRange = () => {
-    const hoje = new Date();
-    const primeiroDia = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
-    const ultimoDia = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0);
-    return {
-      dataInicio: primeiroDia.toISOString().split('T')[0],
-      dataFim: ultimoDia.toISOString().split('T')[0]
-    };
+  // Sempre ler direto do contexto global — fonte única de verdade
+  const filterMode = globalFilters.filterMode;
+  const competenciaMes = globalFilters.competenciaMes;
+  const competenciaAno = globalFilters.competenciaAno;
+
+  const dateRange = {
+    dataInicio: globalFilters.dataInicio,
+    dataFim: globalFilters.dataFim,
   };
 
-  const [localDateRange, setLocalDateRange] = useState(
-    initialDateRange || getDefaultDateRange()
-  );
-  const [localEmpresas, setLocalEmpresas] = useState<string[]>(
-    initialEmpresas || []
-  );
-  const [localCompetenciaMes, setLocalCompetenciaMes] = useState(
-    globalFilters.competenciaMes
-  );
-  const [localCompetenciaAno, setLocalCompetenciaAno] = useState(
-    globalFilters.competenciaAno
-  );
-  const [localFilterMode, setLocalFilterMode] = useState<FilterMode>(
-    globalFilters.filterMode
-  );
-
-  const filterMode = isGlobalMode ? globalFilters.filterMode : localFilterMode;
-  const competenciaMes = isGlobalMode ? globalFilters.competenciaMes : localCompetenciaMes;
-  const competenciaAno = isGlobalMode ? globalFilters.competenciaAno : localCompetenciaAno;
-
-  const dateRange = isGlobalMode ? {
-    dataInicio: globalFilters.dataInicio,
-    dataFim: globalFilters.dataFim
-  } : localDateRange;
-
-  const empresasSelecionadas = isGlobalMode ? globalFilters.empresaIds : localEmpresas;
+  const empresasSelecionadas = globalFilters.empresaIds;
 
   const empresas = getEmpresas();
 
@@ -91,19 +62,9 @@ export const FilterPanel: React.FC<FilterPanelProps> = ({
   };
 
   const handleCompetenciaChange = (mes: number, ano: number) => {
-    if (isGlobalMode) {
-      setCompetencia(mes, ano);
-      if (onDateRangeChange) {
-        onDateRangeChange(competenciaToDateRange(mes, ano));
-      }
-    } else {
-      setLocalCompetenciaMes(mes);
-      setLocalCompetenciaAno(ano);
-      const range = competenciaToDateRange(mes, ano);
-      setLocalDateRange(range);
-      if (onDateRangeChange) {
-        onDateRangeChange(range);
-      }
+    setCompetencia(mes, ano);
+    if (onDateRangeChange) {
+      onDateRangeChange(competenciaToDateRange(mes, ano));
     }
   };
 
@@ -129,59 +90,21 @@ export const FilterPanel: React.FC<FilterPanelProps> = ({
 
   const handleToggleFilterMode = () => {
     const newMode: FilterMode = filterMode === 'competencia' ? 'periodo' : 'competencia';
-    if (isGlobalMode) {
-      setFilterMode(newMode);
-    } else {
-      setLocalFilterMode(newMode);
-      if (newMode === 'competencia') {
-        // Recalcula datas do mês fechado
-        const range = competenciaToDateRange(localCompetenciaMes, localCompetenciaAno);
-        setLocalDateRange(range);
-        if (onDateRangeChange) {
-          onDateRangeChange(range);
-        }
-      }
-    }
+    setFilterMode(newMode);
   };
 
   const handleDateChange = (field: 'dataInicio' | 'dataFim', value: string) => {
-    if (isGlobalMode) {
-      updateFilters({ [field]: value });
-      if (onDateRangeChange) {
-        onDateRangeChange({ ...globalFilters, [field]: value });
-      }
-    } else {
-      const newDateRange = { ...localDateRange, [field]: value };
-      setLocalDateRange(newDateRange);
-      if (onDateRangeChange) {
-        onDateRangeChange(newDateRange);
-      }
+    updateFilters({ [field]: value });
+    if (onDateRangeChange) {
+      onDateRangeChange({ ...dateRange, [field]: value });
     }
   };
 
   const handleEmpresasChange = (ids: string[]) => {
-    if (isGlobalMode) {
-      updateFilters({ empresaIds: ids });
-    } else {
-      setLocalEmpresas(ids);
-    }
+    updateFilters({ empresaIds: ids });
     if (onEmpresasChange) {
       onEmpresasChange(ids);
     }
-  };
-
-  const handleToggleGlobalMode = () => {
-    if (!isGlobalMode) {
-      updateFilters({
-        dataInicio: localDateRange.dataInicio,
-        dataFim: localDateRange.dataFim,
-        empresaIds: localEmpresas,
-        competenciaMes: localCompetenciaMes,
-        competenciaAno: localCompetenciaAno,
-        filterMode: localFilterMode,
-      });
-    }
-    setGlobalMode(!isGlobalMode);
   };
 
   // Gera lista de anos para o select (5 anos atrás até ano atual + 1)
@@ -329,20 +252,6 @@ export const FilterPanel: React.FC<FilterPanelProps> = ({
                 />
               </div>
             </div>
-            <button
-              onClick={handleToggleGlobalMode}
-              className={`
-                flex items-center justify-center h-8 w-8 rounded-md
-                transition-all duration-200 flex-shrink-0
-                ${isGlobalMode
-                  ? 'bg-cyan-600/20 text-cyan-400 border border-cyan-500/30 shadow-[0_0_10px_rgba(34,197,94,0.1)]'
-                  : 'bg-slate-800/50 text-slate-500 border border-slate-700/50 hover:border-slate-600 hover:text-slate-300'
-                }
-              `}
-              title={isGlobalMode ? 'Filtros fixados em todas as telas (clique para desativar)' : 'Clique para fixar os filtros em todas as telas'}
-            >
-              <Link2 className={`w-3.5 h-3.5 ${isGlobalMode ? 'animate-pulse' : ''}`} />
-            </button>
           </div>
         )}
       </div>
