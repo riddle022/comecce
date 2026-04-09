@@ -75,6 +75,8 @@ Deno.serve(async (req) => {
         }
 
         // 3. Delete existing contas for this empresa (clean reimport)
+        // COMENTADO A PEDIDO: Não apagar mais os registros anteriores. Apenas adicionar os novos.
+        /*
         const { error: deleteError } = await supabase
             .from('tbl_contas')
             .delete()
@@ -83,6 +85,7 @@ Deno.serve(async (req) => {
         if (deleteError) {
             console.warn('Alerta: Erro ao limpar dados antigos:', deleteError.message);
         }
+        */
 
         // 3. Create Upload History Record
         // We attempt to create a history record. If the table columns don't exist (migrations not run), this might fail.
