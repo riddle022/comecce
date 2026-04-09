@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Shield, Plus, Edit2, Trash2, X } from 'lucide-react';
+import { Shield, Plus, Edit2, Trash2, X, Settings } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { Grupo } from '../../types/database';
 import { ProtectedAction } from '../Common/ProtectedAction';
@@ -38,7 +38,8 @@ export const GruposPage: React.FC = () => {
     }
   };
 
-  const availableMenus = [
+  // Menus principais — devem corresponder exatamente ao Sidebar
+  const mainMenus = [
     'dashboard',
     'comercial',
     'operacional',
@@ -49,15 +50,22 @@ export const GruposPage: React.FC = () => {
     'dre',
     'upload',
     'historial',
-    'usuarios',
-    'grupos',
-    'empresas'
   ];
 
+  // Sub-menus do Gerenciador
+  const gerenciadorMenus = [
+    'usuarios',
+    'grupos',
+    'empresas',
+  ];
+
+  const allMenuIds = [...mainMenus, ...gerenciadorMenus];
+
+  // Labels idênticos aos do Sidebar
   const menuLabels: Record<string, string> = {
     dashboard: 'Dashboard',
-    comercial: 'Comercial',
-    operacional: 'Operacional',
+    comercial: 'Faturamento',
+    operacional: 'Ordem de Serviço',
     compras: 'Compras',
     produtos: 'Produtos',
     financeiro: 'Financeiro',
@@ -67,7 +75,15 @@ export const GruposPage: React.FC = () => {
     historial: 'Histórico',
     usuarios: 'Usuários',
     grupos: 'Grupos',
-    empresas: 'Empresas'
+    empresas: 'Empresas',
+  };
+
+  const toggleAllMenus = () => {
+    if (formData.menus.length === allMenuIds.length) {
+      setFormData(prev => ({ ...prev, menus: [] }));
+    } else {
+      setFormData(prev => ({ ...prev, menus: [...allMenuIds] }));
+    }
   };
 
   const handleOpenEdit = (grupo: Grupo) => {
@@ -248,7 +264,7 @@ export const GruposPage: React.FC = () => {
                 <div className="pt-4 border-t border-white/5 flex items-center justify-between">
                   <div className="flex -space-x-1.5 overflow-hidden">
                     {grupo.permissoes?.menus?.slice(0, 4).map((menu, i) => (
-                      <div key={i} title={menu} className="w-5 h-5 rounded-full bg-slate-800 border border-white/10 flex items-center justify-center">
+                      <div key={i} title={menuLabels[menu] || menu} className="w-5 h-5 rounded-full bg-slate-800 border border-white/10 flex items-center justify-center">
                         <div className="w-1.5 h-1.5 rounded-full bg-cyan-500/50" />
                       </div>
                     ))}
@@ -365,11 +381,22 @@ export const GruposPage: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-3">
-                  Menus Acessíveis
-                </label>
-                <div className="grid grid-cols-2 gap-2">
-                  {availableMenus.map((menu) => (
+                <div className="flex items-center justify-between mb-3">
+                  <label className="block text-sm font-medium text-gray-300">
+                    Menus Acessíveis
+                  </label>
+                  <button
+                    type="button"
+                    onClick={toggleAllMenus}
+                    className="text-xs font-medium text-cyan-400 hover:text-cyan-300 transition-colors"
+                  >
+                    {formData.menus.length === allMenuIds.length ? 'Desmarcar Todos' : 'Selecionar Todos'}
+                  </button>
+                </div>
+
+                {/* Menus Principais */}
+                <div className="grid grid-cols-2 gap-2 mb-4">
+                  {mainMenus.map((menu) => (
                     <div
                       key={menu}
                       onClick={() => toggleMenu(menu)}
@@ -378,9 +405,31 @@ export const GruposPage: React.FC = () => {
                           : 'bg-[#0F172A] border-[#0F4C5C]/30 text-gray-400 hover:border-[#0F4C5C]/50'
                         }`}
                     >
-                      <span className="text-sm font-medium">{menuLabels[menu] || menu}</span>
+                      <span className="text-sm font-medium">{menuLabels[menu]}</span>
                     </div>
                   ))}
+                </div>
+
+                {/* Gerenciador */}
+                <div className="mt-2">
+                  <div className="flex items-center space-x-2 mb-2 px-1">
+                    <Settings className="w-3.5 h-3.5 text-slate-500" />
+                    <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Gerenciador</span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    {gerenciadorMenus.map((menu) => (
+                      <div
+                        key={menu}
+                        onClick={() => toggleMenu(menu)}
+                        className={`p-3 rounded-lg border cursor-pointer transition-all ${formData.menus.includes(menu)
+                            ? 'bg-[#0F4C5C]/20 border-[#0F4C5C] text-white'
+                            : 'bg-[#0F172A] border-[#0F4C5C]/30 text-gray-400 hover:border-[#0F4C5C]/50'
+                          }`}
+                      >
+                        <span className="text-sm font-medium">{menuLabels[menu]}</span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
 
