@@ -9,8 +9,31 @@ export interface FluxoCaixaKpi {
   variant: 'positive' | 'negative' | 'neutral';
 }
 
-export function useFluxoCaixaKpis(linhas: LinhaRelatorio[], meses: string[]): FluxoCaixaKpi[] {
-  if (linhas.length === 0 || meses.length === 0) return [];
+export interface PontoEquilibrioData {
+  pe1: number;
+  pe2: number;
+  receitaTotal: number;
+  pe1Pct: number;
+  pe2Pct: number;
+  custosFixos: number;
+  investimentos: number;
+  financiamentos: number;
+  retiradas: number;
+  mcPct: number;
+}
+
+function findLinha(linhas: LinhaRelatorio[], match: { codigo?: string; descricao?: string }): LinhaRelatorio | undefined {
+  return linhas.find(l =>
+    (match.codigo && l.codigo === match.codigo) ||
+    (match.descricao && l.descricao === match.descricao)
+  );
+}
+
+export function useFluxoCaixaKpis(linhas: LinhaRelatorio[], meses: string[]): {
+  kpis: FluxoCaixaKpi[];
+  pontoEquilibrio: PontoEquilibrioData | null;
+} {
+  if (linhas.length === 0 || meses.length === 0) return { kpis: [], pontoEquilibrio: null };
 
   const lastMes = meses[meses.length - 1];
 
@@ -45,7 +68,40 @@ export function useFluxoCaixaKpis(linhas: LinhaRelatorio[], meses: string[]): Fl
     : 0;
   const cobertura = mediaSaidas > 0 ? saldoAcumulado / mediaSaidas : 0;
 
-  return [
+  // Ponto de Equilíbrio - usa TOTAIS do período
+  const rb  = findLinha(linhas, { codigo: '1001' });
+  const mc  = findLinha(linhas, { descricao: '(=) Margem de Contribuição' });
+  const cf  = findLinha(linhas, { descricao: '(-) Custos Fixos' });
+  const inv = findLinha(linhas, { descricao: '(-) Investimentos' });
+  const fin = findLinha(linhas, { descricao: '(-) Financiamentos' });
+  const ret = findLinha(linhas, { descricao: '(-) Retiradas Sócios' });
+
+  const rbTotal  = rb?.valor_total ?? 0;
+  const mcTotal  = mc?.valor_total ?? 0;
+  const cfTotal  = Math.abs(cf?.valor_total ?? 0);
+  const invTotal = Math.abs(inv?.valor_total ?? 0);
+  const finTotal = Math.abs(fin?.valor_total ?? 0);
+  const retTotal = Math.abs(ret?.valor_total ?? 0);
+
+  const mcPctFrac = rbTotal !== 0 ? mcTotal / rbTotal : 0; // fração ex: 0.45
+
+  const pe1 = mcPctFrac !== 0 ? cfTotal / mcPctFrac : 0;
+  const pe2 = mcPctFrac !== 0 ? (cfTotal + invTotal + finTotal + retTotal) / mcPctFrac : 0;
+
+  const pontoEquilibrio: PontoEquilibrioData = {
+    pe1,
+    pe2,
+    receitaTotal: rbTotal,
+    pe1Pct: rbTotal > 0 ? (pe1 / rbTotal) * 100 : 0,
+    pe2Pct: rbTotal > 0 ? (pe2 / rbTotal) * 100 : 0,
+    custosFixos: cfTotal,
+    investimentos: invTotal,
+    financiamentos: finTotal,
+    retiradas: retTotal,
+    mcPct: mcPctFrac * 100,
+  };
+
+  const kpis: FluxoCaixaKpi[] = [
     {
       title: 'Total Entradas',
       value: fmtBRL(totalEntradas),
@@ -68,4 +124,7 @@ export function useFluxoCaixaKpis(linhas: LinhaRelatorio[], meses: string[]): Fl
       variant: saldoAcumulado >= 0 ? 'positive' : 'negative',
     },
   ];
+
+  return { kpis, pontoEquilibrio };
 }
+

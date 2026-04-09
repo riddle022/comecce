@@ -69,6 +69,15 @@ function parseCategoria(categoria: string): { codigo: string; grupo: string; sub
   return { codigo: codigoRaw, grupo, subcategoria };
 }
 
+/** Converte valores monetários que possam vir como texto BR "R$ 1.500,00" ou "1.500,00" */
+function parseBRNumber(value: unknown): number {
+  if (value === null || value === undefined || value === '') return NaN;
+  if (typeof value === 'number') return value;
+  let str = String(value).trim();
+  str = str.replace(/R\$\s?/gi, '').replace(/\./g, '').replace(',', '.');
+  return parseFloat(str);
+}
+
 /** Lê arquivo Excel do FormData e retorna array de rows (arrays) */
 function parseExcel(buffer: ArrayBuffer): unknown[][] {
   const workbook = XLSX.read(new Uint8Array(buffer), { type: 'array', cellDates: false });
@@ -88,6 +97,14 @@ function parseExcelSheet(buffer: ArrayBuffer, sheetName: string): unknown[][] {
 // ============================================================
 // PARSERS POR ARQUIVO
 // ============================================================
+
+/** Lê arquivo Excel e retorna array de objetos com keys A, B, C... */
+function parseExcelWithLetters(buffer: ArrayBuffer): any[] {
+  const workbook = XLSX.read(new Uint8Array(buffer), { type: 'array', cellDates: false });
+  const sheetName = workbook.SheetNames[0];
+  const sheet = workbook.Sheets[sheetName];
+  return XLSX.utils.sheet_to_json(sheet, { header: 'A', defval: null });
+}
 
 /**
  * resultado_financeiro → aba receitas ou despesas
@@ -109,7 +126,7 @@ function parseResultadoFinanceiro(
 
     const categoria  = String(row[1]).trim();
     const data       = toDateString(row[3]);
-    const valor      = parseFloat(String(row[4]));
+    const valor      = parseBRNumber(row[4]);
 
     if (!data || isNaN(valor) || !categoria) continue;
 
@@ -150,7 +167,7 @@ function parseRelatorioVendas(
     if (!row || !row[2] || row[15] === null) continue;
 
     const data  = toDateString(row[2]);
-    const valor = parseFloat(String(row[15]));
+    const valor = parseBRNumber(row[15]);
 
     if (!data || isNaN(valor)) continue;
 
@@ -171,29 +188,55 @@ function parseRelatorioVendas(
 
 /**
  * produtos_vendidos → CMV para DRE (codigo 2002)
- * Colunas: [2]data_venda [13]custo_total
- * ⚠️ Confirme se col C (índice 2) é a data no seu arquivo de produtos
- * Agrupa por data → soma custo_total
- * Linha 0 = header, ignorar
+ * Arquivo de produtos não possui data. Usaremos a data de competência
+ * originada do relatório de vendas.
+ * Colunas: [N] custo_total
+ * Agrupa por data (competência) → soma custo_total
  */
 function parseProdutosVendidos(
   buffer: ArrayBuffer,
   idEmpresa: string,
-  idUpload: string
+  idUpload: string,
+  dataCompetencia: string
 ): LancamentoInsert[] {
-  const rows = parseExcel(buffer);
+  const rows = parseExcelWithLetters(buffer);
   const agrupado = new Map<string, number>();
 
-  for (let i = 1; i < rows.length; i++) {
+  for (let i = 0; i < rows.length; i++) {
     const row = rows[i];
-    if (!row || !row[2] || row[13] === null) continue;
+    if (!row) continue;
+    
+    // Pegamos a Coluna N diretamente
+    const valN = row['N'];
+    if (valN === null || valN === undefined || valN === '') continue;
 
-    const data  = toDateString(row[2]);
-    const valor = parseFloat(String(row[13]));
+    // Se for cabeçalho com palavra "custo", ignoramos
+    const strN = String(valN).toLowerCase();
+    if (strN.includes('custo')) continue;
 
-    if (!data || isNaN(valor)) continue;
+    const data  = dataCompetencia;
+    
+    // Se o user falou (-)Custos, pode ser que o valor venha negativo! 
+    // Pegamos absoluto se for para DRE ser positivo, mas vamos ler puramente e colocar positivo:
+    const valor = Math.abs(parseBRNumber(valN));
+
+    if (isNaN(valor) || valor === 0) continue;
 
     agrupado.set(data, (agrupado.get(data) ?? 0) + valor);
+  }
+
+  // Se nada foi encontrado na coluna N, criamos um registro de aviso para debug
+  if (agrupado.size === 0) {
+    return [{
+      id_empresa:   idEmpresa,
+      id_upload:    idUpload,
+      id_origem:    null,
+      codigo:       '2002',
+      grupo:        'Nenhum valor lido na Coluna N',
+      subcategoria: null,
+      data:         dataCompetencia,
+      valor:        0,
+    }];
   }
 
   return Array.from(agrupado.entries()).map(([data, valor]) => ({
@@ -275,7 +318,18 @@ Deno.serve(async (req: Request) => {
       const fluxoLancamentos = [...fluxoReceitas, ...fluxoDespesas];
 
       const dreVendas   = parseRelatorioVendas(bufferVendas, idEmpresa, idUpload);
-      const dreProdutos = parseProdutosVendidos(bufferProdutos, idEmpresa, idUpload);
+      
+      // Define a data de competência baseada no relatório de vendas (mês/ano)
+      // Fixamos no 1º dia do mês para padronizar a competência do CMV na DRE
+      let dataCompetencia = new Date().toISOString().split('T')[0];
+      if (dreVendas.length > 0) {
+        const [ano, mes] = dreVendas[0].data.split('-');
+        if (ano && mes) {
+          dataCompetencia = `${ano}-${mes}-01`;
+        }
+      }
+
+      const dreProdutos = parseProdutosVendidos(bufferProdutos, idEmpresa, idUpload, dataCompetencia);
 
       // Para DRE: reusa o que já foi parseado, filtra codigos que vêm de outras fontes
       const dreFinanceiro  = fluxoLancamentos.filter(l => l.codigo !== '1001' && l.codigo !== '2002');

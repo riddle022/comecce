@@ -63,7 +63,7 @@ export const FluxoCaixaPage: React.FC = () => {
     [dadosMensais]
   );
 
-  const kpis = useFluxoCaixaKpis(linhas, meses);
+  const { kpis, pontoEquilibrio } = useFluxoCaixaKpis(linhas, meses);
 
   return (
     <div className="space-y-4">
@@ -73,7 +73,7 @@ export const FluxoCaixaPage: React.FC = () => {
         initialDateRange={dateRange}
       />
 
-      <FluxoCaixaKpis kpis={kpis} />
+      <FluxoCaixaKpis kpis={kpis} pontoEquilibrio={pontoEquilibrio} />
 
       {!isLoading && linhas.length > 0 && (
         <FluxoCaixaChart linhas={linhas} meses={meses} mesLabels={mesLabels} />

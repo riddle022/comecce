@@ -1,5 +1,6 @@
 import { AlertTriangle, Building2, CheckCircle, ChevronDown, ChevronRight, Copy, FileSpreadsheet, Trash2, Upload, XCircle } from 'lucide-react';
 import React, { useEffect, useRef, useState } from 'react';
+import * as XLSX from 'xlsx';
 import { supabase } from '../../lib/supabase';
 import { Empresa } from '../../types/database';
 import { enrichOrdemServicoWithProdutos, enrichVendasWithProdutos, ErrorRecord, parseOrdemServicoExcel, parseProdutosExcel, parseVendasExcel } from '../../utils/excelParsers';
@@ -321,7 +322,7 @@ export const UploadPage: React.FC = () => {
 
       } else if (uploadType === 'fluxo_dre') {
         // ---------------------------------------------------------
-        // FLUXO DE CAIXA + DRE: Edge Function process-upload-financeiro
+        // FLUXO DE CAIXA + DRE: Processamento LOCAL no frontend
         // ---------------------------------------------------------
         const financeiroFile  = files.find(f => f.type === 'resultado_financeiro')?.file;
         const vendasDREFile   = files.find(f => f.type === 'relatorio_vendas')?.file;
@@ -329,40 +330,209 @@ export const UploadPage: React.FC = () => {
 
         if (!financeiroFile || !vendasDREFile || !produtosDREFile) throw new Error('Arquivos faltando');
 
-        const body = new FormData();
-        body.append('id_empresa', empresa.id_empresa);
-        body.append('resultado_financeiro', financeiroFile);
-        body.append('relatorio_vendas', vendasDREFile);
-        body.append('produtos_vendidos', produtosDREFile);
-
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session) throw new Error('Sessão não encontrada');
-
-        const response = await fetch(
-          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/process-upload-financeiro`,
-          {
-            method: 'POST',
-            headers: { 'Authorization': `Bearer ${session.access_token}` },
-            body
+        // ── Helpers locais ──
+        const toDateStr = (raw: unknown): string | null => {
+          if (!raw) return null;
+          if (typeof raw === 'string') {
+            const d = new Date(raw);
+            return isNaN(d.getTime()) ? null : d.toISOString().split('T')[0];
           }
-        );
+          if (typeof raw === 'number') {
+            const d = new Date((raw - 25569) * 86400 * 1000);
+            return isNaN(d.getTime()) ? null : d.toISOString().split('T')[0];
+          }
+          return null;
+        };
 
-        const resultData = await response.json();
+        const parseBR = (v: unknown): number => {
+          if (v === null || v === undefined || v === '') return NaN;
+          if (typeof v === 'number') return v;
+          let s = String(v).trim().replace(/R\$\s?/gi, '').replace(/\./g, '').replace(',', '.');
+          return parseFloat(s);
+        };
 
-        if (!response.ok || resultData.status === 'falha') {
-          throw new Error(resultData.message || `Erro no servidor: ${response.status}`);
+        const parseCat = (cat: string) => {
+          const p = cat.split(' - ');
+          const codigo = p[0]?.trim().replace(/\./g, '') ?? '';
+          const resto = p.slice(1).join(' - ');
+          const sub = resto.split(' >> ');
+          return { codigo, grupo: sub[0]?.trim() ?? '', subcategoria: sub[1]?.trim() ?? null };
+        };
+
+        interface Lancamento {
+          id_empresa: string; id_upload: string; id_origem: number | null;
+          codigo: string; grupo: string; subcategoria: string | null;
+          data: string; valor: number;
         }
 
-        setResult({
-          status: 'sucesso',
-          total_vendas: resultData.totais?.fluxo_caixa ?? 0,
-          total_produtos: resultData.totais?.dre ?? 0,
-          total_ordens_servico: 0,
-          erros: [],
-          message: `Upload ID: ${resultData.id_upload}`,
-          ...(resultData as any)
-        } as any);
-        setFiles([]);
+        // ── 1. Registra upload ──
+        const { data: uploadRec, error: uploadErr } = await supabase
+          .from('tbl_historico_uploads')
+          .insert({
+            id_empresa: empresa.id_empresa,
+            tipo_importacao: 'fluxo_dre',
+            arquivo_financeiro: financeiroFile.name,
+            arquivo_vendas: vendasDREFile.name,
+            arquivo_produtos: produtosDREFile.name,
+            status: 'processando',
+          })
+          .select('id_upload')
+          .single();
+
+        if (uploadErr) throw new Error(`Erro ao registrar upload: ${uploadErr.message}`);
+        const idUpload = uploadRec.id_upload;
+        const idEmpresa = empresa.id_empresa;
+
+        try {
+          // ── 2. Lê buffers ──
+          const bufFin = await financeiroFile.arrayBuffer();
+          const bufVen = await vendasDREFile.arrayBuffer();
+          const bufProd = await produtosDREFile.arrayBuffer();
+
+          // ── 3. Parse resultado_financeiro (abas receitas + despesas) ──
+          const parseFinanceiro = (buf: ArrayBuffer, aba: string): Lancamento[] => {
+            const wb = XLSX.read(new Uint8Array(buf), { type: 'array', cellDates: false });
+            const sh = wb.Sheets[aba];
+            if (!sh) return [];
+            const rows = XLSX.utils.sheet_to_json(sh, { header: 1, defval: null }) as unknown[][];
+            const lanc: Lancamento[] = [];
+            for (let i = 1; i < rows.length; i++) {
+              const row = rows[i];
+              if (!row || !row[1] || !row[3] || row[4] === null) continue;
+              const cat = String(row[1]).trim();
+              const data = toDateStr(row[3]);
+              const valor = parseBR(row[4]);
+              if (!data || isNaN(valor) || !cat) continue;
+              const { codigo, grupo, subcategoria } = parseCat(cat);
+              if (!codigo) continue;
+              lanc.push({ id_empresa: idEmpresa, id_upload: idUpload, id_origem: row[0] ? Number(row[0]) : null, codigo, grupo, subcategoria, data, valor });
+            }
+            return lanc;
+          };
+
+          const fluxoReceitas = parseFinanceiro(bufFin, 'receitas');
+          const fluxoDespesas = parseFinanceiro(bufFin, 'despesas');
+          const fluxoLancamentos = [...fluxoReceitas, ...fluxoDespesas];
+          console.log(`Fluxo: ${fluxoLancamentos.length} lançamentos`);
+
+          // ── 4. Parse relatorio_vendas → Receita Bruta (1001) ──
+          const wbVen = XLSX.read(new Uint8Array(bufVen), { type: 'array', cellDates: false });
+          const shVen = wbVen.Sheets[wbVen.SheetNames[0]];
+          const rowsVen = XLSX.utils.sheet_to_json(shVen, { header: 1, defval: null }) as unknown[][];
+          const agVendas = new Map<string, number>();
+          for (let i = 1; i < rowsVen.length; i++) {
+            const row = rowsVen[i];
+            if (!row || !row[2] || row[15] === null) continue;
+            const data = toDateStr(row[2]);
+            const valor = parseBR(row[15]);
+            if (!data || isNaN(valor)) continue;
+            agVendas.set(data, (agVendas.get(data) ?? 0) + valor);
+          }
+          const dreVendas: Lancamento[] = Array.from(agVendas.entries()).map(([data, valor]) => ({
+            id_empresa: idEmpresa, id_upload: idUpload, id_origem: null,
+            codigo: '1001', grupo: 'Receita Bruta', subcategoria: null, data, valor,
+          }));
+          console.log(`DRE Vendas: ${dreVendas.length} lançamentos`);
+
+          // ── 5. Determinar data de competência (mês/ano) do relatório de vendas ──
+          let dataCompetencia = new Date().toISOString().split('T')[0];
+          if (dreVendas.length > 0) {
+            const [ano, mes] = dreVendas[0].data.split('-');
+            if (ano && mes) dataCompetencia = `${ano}-${mes}-01`;
+          }
+          console.log(`Data competência para CMV: ${dataCompetencia}`);
+
+          // ── 6. Parse produtos_vendidos → CMV (2002) usando coluna N ──
+          const wbProd = XLSX.read(new Uint8Array(bufProd), { type: 'array', cellDates: false });
+          const shProd = wbProd.Sheets[wbProd.SheetNames[0]];
+          const rowsProd = XLSX.utils.sheet_to_json(shProd, { header: 'A', defval: null }) as any[];
+          let custoTotal = 0;
+          let linhasLidas = 0;
+          let linhasComValor = 0;
+          for (let i = 0; i < rowsProd.length; i++) {
+            const row = rowsProd[i];
+            if (!row) continue;
+            linhasLidas++;
+            const valN = row['N'];
+            if (valN === null || valN === undefined || valN === '') continue;
+            const strN = String(valN).toLowerCase();
+            if (strN.includes('custo') || strN.includes('total')) continue;
+            const valor = Math.abs(parseBR(valN));
+            if (isNaN(valor) || valor === 0) continue;
+            linhasComValor++;
+            custoTotal += valor;
+          }
+          console.log(`Produtos: ${linhasLidas} linhas lidas, ${linhasComValor} com custo na col N, total = ${custoTotal}`);
+
+          const dreProdutos: Lancamento[] = custoTotal > 0 ? [{
+            id_empresa: idEmpresa, id_upload: idUpload, id_origem: null,
+            codigo: '2002', grupo: 'Custo das Mercadorias e Produtos Vendidos',
+            subcategoria: null, data: dataCompetencia, valor: custoTotal,
+          }] : [];
+
+          // ── 7. Montar DRE completo ──
+          const dreFinanceiro = fluxoLancamentos.filter(l => l.codigo !== '1001' && l.codigo !== '2002');
+          const dreLancamentos = [...dreFinanceiro, ...dreVendas, ...dreProdutos];
+          console.log(`DRE total: ${dreLancamentos.length} lançamentos (${dreProdutos.length} CMV)`);
+
+          // ── 8. Range de datas ──
+          const todasDatas = [
+            ...fluxoLancamentos.map(l => l.data),
+            ...dreVendas.map(l => l.data),
+            ...dreProdutos.map(l => l.data),
+          ].filter(Boolean).sort();
+          const dataInicio = todasDatas[0];
+          const dataFim = todasDatas[todasDatas.length - 1];
+          if (!dataInicio || !dataFim) throw new Error('Nenhuma data válida encontrada nos arquivos');
+
+          // ── 9. DELETE antigos no período ──
+          const { error: delFluxo } = await supabase
+            .from('tbl_fluxo_caixa_lancamentos').delete()
+            .eq('id_empresa', idEmpresa).gte('data', dataInicio).lte('data', dataFim);
+          if (delFluxo) throw new Error(`Erro ao limpar fluxo: ${delFluxo.message}`);
+
+          const { error: delDre } = await supabase
+            .from('tbl_dre_lancamentos').delete()
+            .eq('id_empresa', idEmpresa).gte('data', dataInicio).lte('data', dataFim);
+          if (delDre) throw new Error(`Erro ao limpar DRE: ${delDre.message}`);
+
+          // ── 10. INSERT em lotes de 500 ──
+          const chunkSize = 500;
+          for (let i = 0; i < fluxoLancamentos.length; i += chunkSize) {
+            const chunk = fluxoLancamentos.slice(i, i + chunkSize);
+            const { error } = await supabase.from('tbl_fluxo_caixa_lancamentos').insert(chunk);
+            if (error) throw new Error(`Erro ao inserir fluxo lote ${i}: ${error.message}`);
+          }
+          for (let i = 0; i < dreLancamentos.length; i += chunkSize) {
+            const chunk = dreLancamentos.slice(i, i + chunkSize);
+            const { error } = await supabase.from('tbl_dre_lancamentos').insert(chunk);
+            if (error) throw new Error(`Erro ao inserir DRE lote ${i}: ${error.message}`);
+          }
+
+          // ── 11. Atualiza status do upload ──
+          await supabase
+            .from('tbl_historico_uploads')
+            .update({
+              status: 'sucesso',
+              ds_arquivo: `${dataInicio}_${dataFim}`,
+              total_financeiro: fluxoLancamentos.length + dreLancamentos.length,
+            })
+            .eq('id_upload', idUpload);
+
+          setResult({
+            status: 'sucesso',
+            total_vendas: fluxoLancamentos.length,
+            total_produtos: dreLancamentos.length,
+            total_ordens_servico: 0,
+            erros: [],
+            message: `Fluxo: ${fluxoLancamentos.length} | DRE: ${dreLancamentos.length} (CMV: R$ ${custoTotal.toFixed(2)})`,
+          });
+          setFiles([]);
+
+        } catch (innerError) {
+          await supabase.from('tbl_historico_uploads').update({ status: 'falha' }).eq('id_upload', idUpload);
+          throw innerError;
+        }
 
       } else {
         // ---------------------------------------------------------

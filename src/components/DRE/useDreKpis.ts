@@ -33,6 +33,7 @@ export function useDreKpis(linhas: LinhaRelatorio[], meses: string[]): DreKpi[] 
 
   const rb = findLinha(linhas, { codigo: '1001' });
   const mc = findLinha(linhas, { descricao: '(=) Margem de Contribuição' });
+  const cf = findLinha(linhas, { descricao: '(-) Custos Fixos' });
   const ro = findLinha(linhas, { descricao: '(=) Resultado Operacional' });
   const rl = findLinha(linhas, { tipo: 'total' });
 
@@ -43,6 +44,14 @@ export function useDreKpis(linhas: LinhaRelatorio[], meses: string[]): DreKpi[] 
   const roPct = rbVal !== 0 ? (roVal / rbVal) * 100 : 0;
   const rlVal = rl?.valor_mensal[lastMes] ?? 0;
   const rlPct = rbVal !== 0 ? (rlVal / rbVal) * 100 : 0;
+
+  // Ponto de Equilíbrio = Custos Fixos / (Margem de Contribuição / Receita Bruta)
+  // Usa TOTAIS do período para ter visão consolidada
+  const rbTotal = rb?.valor_total ?? 0;
+  const mcTotal = mc?.valor_total ?? 0;
+  const cfTotal = cf?.valor_total ?? 0;
+  const mcPctTotal = rbTotal !== 0 ? mcTotal / rbTotal : 0; // MC% como fração (ex: 0.45)
+  const pontoEquilibrio = mcPctTotal !== 0 ? Math.abs(cfTotal) / mcPctTotal : 0;
 
   return [
     {
@@ -72,5 +81,14 @@ export function useDreKpis(linhas: LinhaRelatorio[], meses: string[]): DreKpi[] 
       trend: rl ? calcTrend(rl.valor_mensal, lastMes, prevMes) : undefined,
       variant: rlVal >= 0 ? 'positive' : 'negative',
     },
+    {
+      title: 'Ponto de Equilíbrio',
+      value: fmtBRL(pontoEquilibrio),
+      subtitle: rbTotal > 0
+        ? `${fmtPct((pontoEquilibrio / rbTotal) * 100)} da Receita`
+        : undefined,
+      variant: rbTotal > 0 && pontoEquilibrio <= rbTotal ? 'positive' : 'negative',
+    },
   ];
 }
+
