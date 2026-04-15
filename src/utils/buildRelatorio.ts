@@ -132,7 +132,7 @@ export function buildRelatorio(dados: FluxoCaixaMensal[]): { linhas: LinhaRelato
   const retMensal    = buildMensal(dados, meses, ['2010']);
   const rarMensal    = subtrair(rafMensal, retMensal);
   const rarPctMensal = pctMensal(rarMensal, rbMensal);
-  const empMensal    = buildMensal(dados, meses, ['1003'], ['2013', '2015']);
+  const empMensal    = buildMensal(dados, meses, ['1003'], ['2013']);
   const rliqMensal   = subtrair(rarMensal, empMensal);
   const rliqPctMensal = pctMensal(rliqMensal, rbMensal);
 
