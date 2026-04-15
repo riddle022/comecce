@@ -36,14 +36,17 @@ export const CelulaValor: React.FC<CelulaValorProps> = ({ linha, value, isPct, f
 
   const isNegative = value < 0;
   const absValStr = Intl.NumberFormat('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Math.abs(value));
+  const color = valueColor(linha.tipo, value);
 
   return (
-    <td className={`px-3 py-2 tabular-nums font-mono min-w-[110px] ${fontSize} ${valueColor(linha.tipo, value)}`}>
-      <div className="flex justify-between items-center w-full gap-2">
-        <span className="text-[10px] text-white font-sans tracking-wide shrink-0">
-          {isNegative ? '-R$' : 'R$'}
+    <td className={`px-3 py-2.5 tabular-nums min-w-[120px] ${fontSize} ${color}`}>
+      <div className="flex items-baseline justify-between gap-2 w-full">
+        <span className="text-[9px] font-semibold text-slate-600 shrink-0 select-none tracking-wide">
+          R$
         </span>
-        <span className="text-right truncate">{absValStr}</span>
+        <span className="font-mono tabular-nums text-right">
+          {isNegative ? '−' : ''}{absValStr}
+        </span>
       </div>
     </td>
   );

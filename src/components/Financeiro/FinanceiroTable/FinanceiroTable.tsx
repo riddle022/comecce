@@ -41,11 +41,14 @@ export const FinanceiroTable: React.FC<FinanceiroTableProps> = ({
   const colCount = 1 + meses.length * (isAnalytic ? 2 : 1) + (isAnalytic ? 2 : 1);
 
   return (
-    <div className="bg-slate-900/40 border border-white/5 rounded-xl overflow-hidden">
-      <div className="px-4 py-3 border-b border-white/5 flex items-center justify-between">
+    <div className="bg-slate-900/60 border border-slate-700/40 rounded-2xl overflow-hidden shadow-xl">
+      <div className="px-5 py-3.5 border-b border-slate-700/40 flex items-center justify-between bg-slate-800/40">
         <div>
-          <h2 className="text-sm font-bold text-white tracking-tight">{title}</h2>
-          <p className="text-[10px] text-slate-500 uppercase tracking-widest mt-0.5">{subtitle}</p>
+          <h2 className="text-sm font-bold text-white tracking-tight flex items-center gap-2.5">
+            <span className="w-1 h-4 rounded-full bg-cyan-500 inline-block opacity-80" />
+            {title}
+          </h2>
+          <p className="text-[10px] text-slate-500 uppercase tracking-widest mt-0.5 pl-3.5">{subtitle}</p>
         </div>
         <ViewModeToggle mode={viewMode} onChange={onViewModeChange} />
       </div>

@@ -5,13 +5,13 @@ type Tipo = LinhaRelatorio['tipo'];
 export function rowBg(tipo: Tipo): string {
   switch (tipo) {
     case 'total':
-      return 'bg-[#0F4C5C] border-l-4 border-l-emerald-400 font-black text-base';
+      return 'bg-gradient-to-r from-[#0F4C5C] to-[#0a3240] border-l-[3px] border-l-cyan-400 font-black text-sm';
     case 'subtotal':
-      return 'bg-[#0F4C5C]/30 border-l-2 border-l-[#0F4C5C] font-bold text-sm border-t border-t-slate-700/60';
+      return 'bg-slate-800/60 border-l-2 border-l-slate-600 font-bold text-[13px] border-t border-t-slate-700/50';
     case 'percentual':
-      return 'italic text-xs';
+      return 'italic text-xs bg-slate-900/30';
     default:
-      return 'hover:bg-slate-800/30 text-[13px]';
+      return 'hover:bg-slate-800/50 text-[13px]';
   }
 }
 

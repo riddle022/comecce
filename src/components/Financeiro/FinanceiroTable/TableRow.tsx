@@ -22,12 +22,12 @@ export const TableRow: React.FC<TableRowProps> = ({ linha, meses, viewMode, isFi
   return (
     <tr className={`transition-colors ${rowBg(linha.tipo)}`}>
       <td
-        className={`sticky left-0 z-10 px-3 py-2 whitespace-nowrap ${
+        className={`sticky left-0 z-10 px-4 py-2.5 whitespace-nowrap ${
           linha.tipo === 'total'
-            ? 'bg-[#0F4C5C]'
+            ? 'bg-[#0a3240]'
             : linha.tipo === 'subtotal'
-              ? 'bg-[#1a2e42]'
-              : 'bg-[#0f1729]'
+              ? 'bg-slate-800/80'
+              : 'bg-[#0c1525]'
         } ${isFilho ? 'pl-10' : ''} ${descColor(linha.tipo)} ${fontSize}`}
       >
         <div className="flex items-center gap-1.5">

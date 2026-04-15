@@ -24,56 +24,66 @@ const PeCard: React.FC<{
   const acima = receita > 0 && value <= receita;
   const barWidth = Math.min(pct, 100);
 
-  const colorMap: Record<string, { border: string; iconBg: string; iconText: string; gradient: string; bar: string; badge: string }> = {
+  const colorMap: Record<string, {
+    border: string; iconBg: string; iconText: string; iconRing: string;
+    gradient: string; bar: string; topBar: string;
+  }> = {
     amber: {
-      border: 'border-amber-500/20',
-      iconBg: 'bg-amber-500/10',
+      border: 'border-amber-500/20 hover:border-amber-400/40',
+      iconBg: 'bg-amber-500/15',
       iconText: 'text-amber-400',
-      gradient: 'from-amber-500/5 via-[#1E293B] to-[#1E293B]',
-      bar: 'from-amber-500 to-emerald-500',
-      badge: 'text-amber-400',
+      iconRing: 'ring-amber-500/25',
+      gradient: 'from-amber-500/[0.06] to-transparent',
+      bar: 'from-amber-400 to-emerald-400',
+      topBar: 'from-amber-400/60 via-amber-500/20 to-transparent',
     },
     violet: {
-      border: 'border-violet-500/20',
-      iconBg: 'bg-violet-500/10',
+      border: 'border-violet-500/20 hover:border-violet-400/40',
+      iconBg: 'bg-violet-500/15',
       iconText: 'text-violet-400',
-      gradient: 'from-violet-500/5 via-[#1E293B] to-[#1E293B]',
-      bar: 'from-violet-500 to-cyan-500',
-      badge: 'text-violet-400',
+      iconRing: 'ring-violet-500/25',
+      gradient: 'from-violet-500/[0.06] to-transparent',
+      bar: 'from-violet-400 to-cyan-400',
+      topBar: 'from-violet-400/60 via-violet-500/20 to-transparent',
     },
   };
   const c = colorMap[color] || colorMap.amber;
 
   return (
-    <div className={`relative overflow-hidden rounded-xl border transition-all ${c.border} bg-gradient-to-r ${c.gradient}`}>
-      <div className="p-4 space-y-3">
+    <div className={`relative overflow-hidden rounded-2xl border ${c.border} bg-slate-900/80 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-xl`}>
+      {/* Accent top line */}
+      <div className={`absolute top-0 left-0 right-0 h-px bg-gradient-to-r ${c.topBar}`} />
+      {/* Background glow */}
+      <div className={`absolute inset-0 bg-gradient-to-br ${c.gradient} pointer-events-none`} />
+
+      <div className="relative p-5 space-y-4">
         {/* Header */}
-        <div className="flex items-center justify-between">
+        <div className="flex items-start justify-between gap-3">
           <div className="flex items-center gap-3">
-            <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${c.iconBg}`}>
-              <Icon className={`w-4.5 h-4.5 ${c.iconText}`} />
+            <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${c.iconBg} ring-1 ${c.iconRing}`}>
+              <Icon className={`w-5 h-5 ${c.iconText}`} />
             </div>
             <div>
-              <p className="text-[9px] text-slate-500 uppercase tracking-wider font-bold">{title}</p>
-              <p className="text-lg font-bold text-white tabular-nums">{fmtBRL(value)}</p>
+              <p className="text-[10px] text-slate-500 uppercase tracking-widest font-semibold leading-none mb-1.5">{title}</p>
+              <p className="text-xl font-black text-white tabular-nums leading-none">{fmtBRL(value)}</p>
             </div>
           </div>
-          <div className={`px-2.5 py-1 rounded-lg text-[9px] font-bold uppercase tracking-wider ${
+          <span className={`shrink-0 px-2.5 py-1 rounded-full text-[9px] font-bold uppercase tracking-wider ring-1 ${
             acima
-              ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
-              : 'bg-red-500/10 text-red-400 border border-red-500/20'
+              ? 'bg-emerald-500/10 text-emerald-400 ring-emerald-500/25'
+              : 'bg-red-500/10 text-red-400 ring-red-500/25'
           }`}>
             {acima ? 'Acima' : 'Abaixo'}
-          </div>
+          </span>
         </div>
 
-        {/* Barra de progresso */}
-        <div className="space-y-1">
-          <div className="flex items-center justify-between text-[9px] font-bold">
+        {/* Progress bar */}
+        <div className="space-y-1.5">
+          <div className="flex items-center justify-between text-[9px] font-semibold">
             <span className="text-slate-500 uppercase tracking-wider">{fmtPct(pct)} da Receita</span>
-            <span className="text-slate-600">MC: {fmtPct(mcPct)}</span>
+            <span className="text-slate-600 font-medium">MC: {fmtPct(mcPct)}</span>
           </div>
-          <div className="h-1.5 w-full bg-slate-800 rounded-full overflow-hidden">
+          <div className="h-1.5 w-full bg-slate-800/80 rounded-full overflow-hidden">
             <div
               className={`h-full transition-all duration-700 rounded-full bg-gradient-to-r ${acima ? c.bar : 'from-red-500 to-red-400'}`}
               style={{ width: `${barWidth}%` }}
@@ -82,14 +92,16 @@ const PeCard: React.FC<{
         </div>
 
         {/* Breakdown */}
-        <div className="grid grid-cols-2 gap-x-4 gap-y-1 pt-1 border-t border-white/5">
-          {labels.map(item => (
-            <div key={item.label} className="flex items-center justify-between">
-              <span className="text-[9px] text-slate-500 font-medium">{item.label}</span>
-              <span className="text-[10px] text-slate-400 font-bold tabular-nums">{fmtBRL(item.value)}</span>
-            </div>
-          ))}
-        </div>
+        {labels.length > 0 && (
+          <div className="pt-3 border-t border-white/5 grid grid-cols-2 gap-x-6 gap-y-2">
+            {labels.map(item => (
+              <div key={item.label} className="flex items-center justify-between gap-2">
+                <span className="text-[9px] text-slate-500 font-medium uppercase tracking-wide">{item.label}</span>
+                <span className="text-[10px] text-slate-300 font-bold tabular-nums font-mono">{fmtBRL(item.value)}</span>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
