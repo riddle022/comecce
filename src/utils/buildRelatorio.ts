@@ -52,6 +52,19 @@ function subtrair(
   return result;
 }
 
+function somar(
+  base: Record<string, number>,
+  ...adicoes: Record<string, number>[]
+): Record<string, number> {
+  const result = { ...base };
+  for (const add of adicoes) {
+    for (const mes of Object.keys(result)) {
+      result[mes] = (result[mes] ?? 0) + (add[mes] ?? 0);
+    }
+  }
+  return result;
+}
+
 function pctMensal(
   num: Record<string, number>,
   den: Record<string, number>
@@ -127,13 +140,13 @@ export function buildRelatorio(dados: FluxoCaixaMensal[]): { linhas: LinhaRelato
   const raiMensal    = subtrair(roMensal, invMensal);
   const raiPctMensal = pctMensal(raiMensal, rbMensal);
   const finMensal    = buildMensal(dados, meses, ['1002'], ['2011']);
-  const rafMensal    = subtrair(raiMensal, finMensal);
+  const rafMensal    = somar(raiMensal, finMensal);
   const rafPctMensal = pctMensal(rafMensal, rbMensal);
   const retMensal    = buildMensal(dados, meses, ['2010']);
   const rarMensal    = subtrair(rafMensal, retMensal);
   const rarPctMensal = pctMensal(rarMensal, rbMensal);
   const empMensal    = buildMensal(dados, meses, ['1003'], ['2013']);
-  const rliqMensal   = subtrair(rarMensal, empMensal);
+  const rliqMensal   = somar(rarMensal, empMensal);
   const rliqPctMensal = pctMensal(rliqMensal, rbMensal);
 
   const linhas: LinhaRelatorio[] = [
