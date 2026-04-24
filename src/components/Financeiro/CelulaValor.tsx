@@ -34,7 +34,8 @@ export const CelulaValor: React.FC<CelulaValorProps> = ({ linha, value, isPct, f
     );
   }
 
-  const isNegative = value < 0;
+  // Saídas são armazenadas como positivas mas representam deduções
+  const isDeduction = (linha.tipo === 'saida' && value > 0) || value < 0;
   const absValStr = Intl.NumberFormat('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Math.abs(value));
   const color = valueColor(linha.tipo, value);
 
@@ -45,7 +46,7 @@ export const CelulaValor: React.FC<CelulaValorProps> = ({ linha, value, isPct, f
           R$
         </span>
         <span className="font-mono tabular-nums text-right">
-          {isNegative ? '−' : ''}{absValStr}
+          {isDeduction ? `(${absValStr})` : absValStr}
         </span>
       </div>
     </td>

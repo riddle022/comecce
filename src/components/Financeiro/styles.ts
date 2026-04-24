@@ -19,7 +19,8 @@ export function valueColor(tipo: Tipo, value: number): string {
   if (tipo === 'total' || tipo === 'subtotal' || tipo === 'percentual') {
     return value >= 0 ? 'text-emerald-400' : 'text-red-400';
   }
-  return 'text-slate-200';
+  if (tipo === 'saida') return 'text-red-400/80';
+  return value < 0 ? 'text-red-400/80' : 'text-slate-200';
 }
 
 export function descColor(tipo: Tipo): string {

@@ -35,11 +35,9 @@ export function useFluxoCaixaKpis(linhas: LinhaRelatorio[], meses: string[]): {
 } {
   if (linhas.length === 0 || meses.length === 0) return { kpis: [], pontoEquilibrio: null };
 
-  const lastMes = meses[meses.length - 1];
-
+  // Calcula total de entradas e saídas somando TODOS os meses
   let totalEntradas = 0;
   let totalSaidas = 0;
-  let saldoAcumulado = 0;
   const saidasMensais: number[] = [];
 
   for (const mes of meses) {
@@ -53,16 +51,25 @@ export function useFluxoCaixaKpis(linhas: LinhaRelatorio[], meses: string[]): {
       if (linha.tipo === 'saida') saidasMes += Math.abs(val);
     }
 
-    saldoAcumulado += entradasMes - saidasMes;
+    totalEntradas += entradasMes;
+    totalSaidas += saidasMes;
     saidasMensais.push(saidasMes);
+  }
 
-    if (mes === lastMes) {
-      totalEntradas = entradasMes;
-      totalSaidas = saidasMes;
+  // Saldo do Período = Resultado Líquido da tabela (linha tipo 'total')
+  const linhaResultadoLiquido = linhas.find(
+    l => l.tipo === 'total' && l.descricao === '(=) Resultado Líquido'
+  );
+  const saldoPeriodo = linhaResultadoLiquido?.valor_total ?? 0;
+
+  // Saldo Acumulado = acumula o resultado líquido mês a mês
+  let saldoAcumulado = 0;
+  if (linhaResultadoLiquido) {
+    for (const mes of meses) {
+      saldoAcumulado += linhaResultadoLiquido.valor_mensal[mes] ?? 0;
     }
   }
 
-  const saldoPeriodo = totalEntradas - totalSaidas;
   const mediaSaidas = saidasMensais.length > 0
     ? saidasMensais.reduce((a, b) => a + b, 0) / saidasMensais.length
     : 0;
