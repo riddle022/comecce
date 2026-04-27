@@ -139,13 +139,13 @@ export function buildRelatorio(dados: FluxoCaixaMensal[]): { linhas: LinhaRelato
   const invMensal    = buildMensal(dados, meses, ['2012']);
   const raiMensal    = subtrair(roMensal, invMensal);
   const raiPctMensal = pctMensal(raiMensal, rbMensal);
-  const finMensal    = buildMensal(dados, meses, ['1002'], ['2011']);
+  const finMensal    = buildMensal(dados, meses, ['1002'], ['2011', '2013']);
   const rafMensal    = somar(raiMensal, finMensal);
   const rafPctMensal = pctMensal(rafMensal, rbMensal);
   const retMensal    = buildMensal(dados, meses, ['2010']);
   const rarMensal    = subtrair(rafMensal, retMensal);
   const rarPctMensal = pctMensal(rarMensal, rbMensal);
-  const empMensal    = buildMensal(dados, meses, ['1003'], ['2013', '2015']);
+  const empMensal    = buildMensal(dados, meses, ['1003'], ['2015']);
   const rliqMensal   = somar(rarMensal, empMensal);
   const rliqPctMensal = pctMensal(rliqMensal, rbMensal);
 
@@ -162,13 +162,13 @@ export function buildRelatorio(dados: FluxoCaixaMensal[]): { linhas: LinhaRelato
     mk('2012', '(-) Investimentos',            'saida',    'pai', invMensal),
     mk(null,   '(=) Res. após Investimentos',  'subtotal', 'pai', raiMensal),
     makePct(   '(=) Res. após Investimentos %',            raiPctMensal),
-    mk(null,   '(-) Financiamentos',           'entrada',  'pai', finMensal),
+    mk(null,   '(+/-) Financiamentos',         'entrada',  'pai', finMensal),
     mk(null,   '(=) Res. após Financiamentos', 'subtotal', 'pai', rafMensal),
     makePct(   '(=) Res. após Financiamentos %',           rafPctMensal),
     mk('2010', '(-) Retiradas Sócios',         'saida',    'pai', retMensal),
     mk(null,   '(=) Res. após Retiradas',      'subtotal', 'pai', rarMensal),
     makePct(   '(=) Res. após Retiradas %',                rarPctMensal),
-    mk(null,   '(-) Empréstimos Empresas',     'saida',    'pai', empMensal),
+    mk(null,   '(+/-) Empréstimos Empresas',   'saida',    'pai', empMensal),
     mk(null,   '(=) Resultado Líquido',        'total',    'pai', rliqMensal),
     makePct(   '(=) Resultado Líquido %',                  rliqPctMensal),
   ];
