@@ -66,18 +66,33 @@ export const ComprasPage: React.FC = () => {
 
     // --- Process Data for "Custos Diretos" (Revenda + Laboratório) ---
     const specificDashboardData = useMemo(() => {
-        if (!data) return { chartData: [], supplierData: [], kpis: { total: 0 } };
+        if (!data) return { chartData: [], supplierData: [], kpis: { total: 0 }, labLabel: 'Laboratório' };
+
+        let hasLab = false;
+        let hasOurives = false;
 
         const isRevenda = (cat: string) => {
             const lc = (cat || '').toLowerCase();
-            return lc.startsWith('2.002') && lc.includes('compra') && !lc.includes('laborat');
+            return lc.startsWith('2.002') && lc.includes('compra') && !lc.includes('laborat') && !lc.includes('ourives');
         };
         const isLab = (cat: string) => {
             const lc = (cat || '').toLowerCase();
-            return lc.startsWith('2.002') && lc.includes('laborat');
+            if (!lc.startsWith('2.002')) return false;
+            
+            const isL = lc.includes('laborat');
+            const isO = lc.includes('ourives');
+            
+            if (isL) hasLab = true;
+            if (isO) hasOurives = true;
+            
+            return isL || isO;
         };
 
         const filtered = data.filter(item => isRevenda(item.categoria) || isLab(item.categoria));
+        
+        let labLabel = 'Laboratório';
+        if (hasOurives && !hasLab) labLabel = 'Ourives';
+        else if (hasOurives && hasLab) labLabel = 'Laboratório / Ourives';
 
         // Group by Month (data_pagamento) -> YYYY-MM
         const grouped: Record<string, { date: string, revenda: number, laboratorio: number }> = {};
@@ -123,7 +138,7 @@ export const ComprasPage: React.FC = () => {
         // Sort suppliers by Total Value Descending
         const supplierData = Object.values(supplierMap).sort((a, b) => b.value - a.value);
 
-        return { chartData, supplierData, kpis: { total } };
+        return { chartData, supplierData, kpis: { total }, labLabel };
     }, [data]);
 
 
@@ -203,11 +218,11 @@ export const ComprasPage: React.FC = () => {
                 </div>
             </div>
 
-            {/* DASHBOARD 1: CUSTOS DIRETOS (REVENDA + LAB) */}
+            {/* DASHBOARD 1: CUSTOS DIRETOS (REVENDA + LAB/OURIVES) */}
             <section className="space-y-4">
                 <div className="flex items-center space-x-2 border-b border-slate-700 pb-2">
                     <ShoppingBag className="text-emerald-400" size={20} />
-                    <h3 className="text-xl font-semibold text-white">Custos Diretos (Mercadorias e Laboratório)</h3>
+                    <h3 className="text-xl font-semibold text-white">Custos Diretos (Mercadorias e {specificDashboardData.labLabel})</h3>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -228,7 +243,7 @@ export const ComprasPage: React.FC = () => {
                                 </div>
                             </div>
                             <div className="flex items-center justify-between text-xs">
-                                <span className="text-blue-400 font-medium">Laboratório</span>
+                                <span className="text-blue-400 font-medium">{specificDashboardData.labLabel}</span>
                                 <div className="h-2 flex-1 mx-3 bg-slate-700 rounded-full overflow-hidden">
                                     <div className="h-full bg-blue-500 rounded-full" style={{ width: '100%' }}></div>
                                 </div>
@@ -287,7 +302,7 @@ export const ComprasPage: React.FC = () => {
                                         labelStyle={{ color: '#94A3B8', fontSize: 12, marginBottom: 8, fontWeight: 600 }}
                                         itemStyle={{ color: '#E2E8F0', fontSize: 13, padding: '2px 0' }}
                                         formatter={(value?: number, name?: string) => {
-                                            const label = name === 'revenda' ? 'Revenda' : 'Laboratório';
+                                            const label = name === 'revenda' ? 'Revenda' : specificDashboardData.labLabel;
                                             return [formatCurrency(value || 0), label];
                                         }}
                                         labelFormatter={formatDate}
@@ -298,7 +313,7 @@ export const ComprasPage: React.FC = () => {
                                         iconType="circle"
                                         iconSize={8}
                                         wrapperStyle={{ fontSize: 12, color: '#94A3B8', paddingBottom: 12 }}
-                                        formatter={(value: string) => value === 'revenda' ? 'Revenda' : 'Laboratório'}
+                                        formatter={(value: string) => value === 'revenda' ? 'Revenda' : specificDashboardData.labLabel}
                                     />
                                     <Area
                                         type="monotone"
@@ -362,7 +377,7 @@ export const ComprasPage: React.FC = () => {
                                     <tr>
                                         <th className="p-4 font-semibold">Fornecedor / Razão Social</th>
                                         <th className="p-4 font-semibold text-right">Revenda</th>
-                                        <th className="p-4 font-semibold text-right">Laboratório</th>
+                                        <th className="p-4 font-semibold text-right">{specificDashboardData.labLabel}</th>
                                         <th className="p-4 font-semibold text-right">Total</th>
                                         <th className="p-4 font-semibold text-right text-xs">% Repr.</th>
                                     </tr>
