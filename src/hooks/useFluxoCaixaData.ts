@@ -14,10 +14,10 @@ export const useFluxoCaixaData = ({ dataInicio, dataFim, empresaIds }: UseFluxoC
   const [isLoading, setIsLoading]       = useState(true);
   const [error, setError]               = useState<string | null>(null);
 
-  const empresaId = empresaIds[0];
+
 
   useEffect(() => {
-    if (!empresaId) {
+    if (!empresaIds || empresaIds.length === 0) {
       setDadosMensais([]);
       setIsLoading(false);
       return;
@@ -28,14 +28,27 @@ export const useFluxoCaixaData = ({ dataInicio, dataFim, empresaIds }: UseFluxoC
         setIsLoading(true);
         setError(null);
 
-        const { data, error: rpcError } = await supabase.rpc('fn_fluxo_caixa_mensal', {
-          p_id_empresa:  empresaId,
-          p_data_inicio: dataInicio,
-          p_data_fim:    dataFim,
-        });
+        const ids = Array.isArray(empresaIds) ? empresaIds : [empresaIds];
 
-        if (rpcError) throw rpcError;
-        setDadosMensais((data as FluxoCaixaMensal[]) ?? []);
+        const promises = ids.map(id =>
+          supabase.rpc('fn_fluxo_caixa_mensal', {
+            p_id_empresa:  id,
+            p_data_inicio: dataInicio,
+            p_data_fim:    dataFim,
+          })
+        );
+
+        const results = await Promise.all(promises);
+
+        let allData: FluxoCaixaMensal[] = [];
+        for (const res of results) {
+          if (res.error) throw res.error;
+          if (res.data) {
+            allData = allData.concat(res.data as FluxoCaixaMensal[]);
+          }
+        }
+
+        setDadosMensais(allData);
       } catch (err) {
         console.error('Erro ao carregar fluxo de caixa:', err);
         setError(err instanceof Error ? err.message : 'Erro ao carregar dados');
@@ -46,25 +59,40 @@ export const useFluxoCaixaData = ({ dataInicio, dataFim, empresaIds }: UseFluxoC
     };
 
     fetchData();
-  }, [dataInicio, dataFim, empresaId]);
+  }, [dataInicio, dataFim, empresaIds]);
 
   const buscarDiario = useCallback(async (codigo: string) => {
-    if (!empresaId || dadosDiarios[codigo]) return;
+    if (!empresaIds || empresaIds.length === 0 || dadosDiarios[codigo]) return;
 
     try {
-      const { data, error: rpcError } = await supabase.rpc('fn_fluxo_caixa_diario', {
-        p_id_empresa:  empresaId,
-        p_data_inicio: dataInicio,
-        p_data_fim:    dataFim,
-        p_codigo:      codigo,
-      });
+      const ids = Array.isArray(empresaIds) ? empresaIds : [empresaIds];
 
-      if (rpcError) throw rpcError;
-      setDadosDiarios(prev => ({ ...prev, [codigo]: (data as FluxoCaixaDiario[]) ?? [] }));
+      const promises = ids.map(id =>
+        supabase.rpc('fn_fluxo_caixa_diario', {
+          p_id_empresa:  id,
+          p_data_inicio: dataInicio,
+          p_data_fim:    dataFim,
+          p_codigo:      codigo,
+        })
+      );
+
+      const results = await Promise.all(promises);
+      let allDiario: FluxoCaixaDiario[] = [];
+      for (const res of results) {
+        if (res.error) throw res.error;
+        if (res.data) {
+          allDiario = allDiario.concat(res.data as FluxoCaixaDiario[]);
+        }
+      }
+
+      // Sort by date to maintain chronological order
+      allDiario.sort((a, b) => new Date(a.data).getTime() - new Date(b.data).getTime());
+
+      setDadosDiarios(prev => ({ ...prev, [codigo]: allDiario }));
     } catch (err) {
       console.error('Erro ao buscar dados diários:', err);
     }
-  }, [empresaId, dataInicio, dataFim, dadosDiarios]);
+  }, [empresaIds, dataInicio, dataFim, dadosDiarios]);
 
   return { dadosMensais, dadosDiarios, isLoading, error, buscarDiario };
 };
