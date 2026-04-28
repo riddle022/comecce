@@ -168,7 +168,7 @@ export function buildRelatorio(dados: FluxoCaixaMensal[]): { linhas: LinhaRelato
     mk('2010', '(-) Retiradas Sócios',         'saida',    'pai', retMensal),
     mk(null,   '(=) Res. após Retiradas',      'subtotal', 'pai', rarMensal),
     makePct(   '(=) Res. após Retiradas %',                rarPctMensal),
-    mk(null,   '(+/-) Empréstimos Empresas',   'saida',    'pai', empMensal),
+    mk(null,   '(+/-) Empréstimos Empresas',   'entrada',  'pai', empMensal),
     mk(null,   '(=) Resultado Líquido',        'total',    'pai', rliqMensal),
     makePct(   '(=) Resultado Líquido %',                  rliqPctMensal),
   ];
